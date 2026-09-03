@@ -50,6 +50,8 @@ BTN_NOTICE = "📢 Update College Holiday Notice"
 BTN_LOOKUP = "🔍 KISI STUDENT KA RECORD NIKALO"
 BTN_MENU = "📋 MENU KHOLO"
 CB_MENU_OPEN = "menu:open"
+BTN_MAZE = "🏖️ MAZE KARO AJJ"
+CB_FUN = "fun:mozkaro"
 BTN_EXIT = "❌ EXIT"
 CB_EXIT = "exit:cancel"
 BTN_PROOF = "😈😈 PROOF CHAHIYE KYA 👹👹"
@@ -305,10 +307,14 @@ def main_menu_kb() -> InlineKeyboardMarkup:
 
 def menu_open_kb() -> InlineKeyboardMarkup:
     """Registered user ka home keyboard:
-    - SABSE UPAR 2 attendance buttons: [😎 PRESENT HU] [😁 AAJ KI CHHUTTI MAAR LI]
-      -> in par click karne se aaj ki attendance turant lag jaati hai
-    - Niche '📋 MENU KHOLO' -> click karne par 9-button menu khulta hai
+    - Normal din: UPAR 2 attendance buttons + niche '📋 MENU KHOLO'
+    - Holiday wale din: attendance buttons NAHI — sirf [🏖️ MAZE KARO AJJ] + MENU
     """
+    if db.is_holiday(today_str()):
+        return InlineKeyboardMarkup([
+            [InlineKeyboardButton(BTN_MAZE, callback_data=CB_FUN)],
+            [InlineKeyboardButton(BTN_MENU, callback_data=CB_MENU_OPEN)],
+        ])
     return InlineKeyboardMarkup([
         [InlineKeyboardButton(BTN_PRESENT, callback_data="att:PRESENT"),
          InlineKeyboardButton(BTN_CHHUTTI, callback_data="att:CHHUTTI")],
@@ -322,6 +328,10 @@ def name_for(update: Update) -> str:
 
 
 def daily_kb() -> InlineKeyboardMarkup:
+    """Roz subah wala keyboard — holiday par sirf MAZE KARO button."""
+    if db.is_holiday(today_str()):
+        return InlineKeyboardMarkup(
+            [[InlineKeyboardButton(BTN_MAZE, callback_data=CB_FUN)]])
     return InlineKeyboardMarkup(
         [[InlineKeyboardButton(BTN_PRESENT, callback_data="att:PRESENT"),
           InlineKeyboardButton(BTN_CHHUTTI, callback_data="att:CHHUTTI")]]
@@ -340,16 +350,22 @@ def admin_daily_kb() -> InlineKeyboardMarkup:
       6) 📊 Meri kitni percent attendance hai?
     - In 6 ke NICHE ek '📋 MENU KHOLO' button hoga
     - MENU click karne par hi bache hue 8 buttons dikhenge
+    - Holiday wale din: PRESENT/CHHUTTI rows ki jagah [🏖️ MAZE KARO AJJ]
     """
-    return InlineKeyboardMarkup([
-        [InlineKeyboardButton(BTN_PRESENT, callback_data="att:PRESENT")],
-        [InlineKeyboardButton(BTN_CHHUTTI, callback_data="att:CHHUTTI")],
+    rows = []
+    if db.is_holiday(today_str()):
+        rows.append([InlineKeyboardButton(BTN_MAZE, callback_data=CB_FUN)])
+    else:
+        rows.append([InlineKeyboardButton(BTN_PRESENT, callback_data="att:PRESENT")])
+        rows.append([InlineKeyboardButton(BTN_CHHUTTI, callback_data="att:CHHUTTI")])
+    rows.extend([
         [InlineKeyboardButton(BTN_HOLIDAY, callback_data="holiday:ask")],
         [InlineKeyboardButton(BTN_NOTICE, callback_data="holiday:ask")],
         [InlineKeyboardButton(BTN_LOOKUP, callback_data="lookup:ask")],
         [InlineKeyboardButton(MENU_BUTTONS[0], callback_data="menu:0")],
         [InlineKeyboardButton(BTN_MENU, callback_data=CB_MENU_OPEN)],
     ])
+    return InlineKeyboardMarkup(rows)
 
 
 def admin_extended_menu_kb() -> InlineKeyboardMarkup:
@@ -415,11 +431,18 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return ConversationHandler.END
 
     if db.get_student(chat_id):
-        await update.effective_message.reply_text(
-            f"😎 {name_for(update)}, aaj college gaye the ya chhutti maar li? "
-            f"👇 Niche button dabao (menu bhi niche hai):",
-            reply_markup=menu_open_kb(),
-        )
+        if db.is_holiday(today_str()):
+            await update.effective_message.reply_text(
+                f"🏖️ {name_for(update)}, AAJ TOH CHHUTTI HAI MOZ KARO 🎉 "
+                f"👇 Niche button dabao:",
+                reply_markup=menu_open_kb(),
+            )
+        else:
+            await update.effective_message.reply_text(
+                f"😎 {name_for(update)}, aaj college gaye the ya chhutti maar li? "
+                f"👇 Niche button dabao (menu bhi niche hai):",
+                reply_markup=menu_open_kb(),
+            )
         return ConversationHandler.END
 
     await update.effective_message.reply_text(MSG_WELCOME[0])
@@ -654,6 +677,9 @@ def home_after_exit(update: Update):
         return ("✅ Bahar aa gaye. 🙏 Malik APP, home par wapas 👇",
                 admin_daily_kb())
     if db.get_student(chat_id):
+        if db.is_holiday(today_str()):
+            return ("✅ Bahar aa gaye. 🏖️ Aaj chhutti hai — MAZE KARO AJJ! 👇",
+                    menu_open_kb())
         return ("✅ Bahar aa gaye. 😎 Home par wapas — "
                 "aaj college gaye the ya chhutti maar li? 👇",
                 menu_open_kb())
@@ -702,6 +728,14 @@ async def on_attendance_btn(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await q.edit_message_text("Pehle registration karwao! 'hi' bhejo 😊")
         return
     day = today_str()
+    if db.is_holiday(day):
+        # Holiday wale din attendance buttons dikhte hi nahi — purane message
+        # se dab gaya to save mat karo, MAZE KARO dikhao.
+        await q.edit_message_text(
+            f"🏖️ AAJ TOH CHHUTTI HAI MOZ KARO 🎉 ({day})\n"
+            f"Aaj attendance nahi lagegi — kal milte hain! 😎",
+            reply_markup=menu_open_kb())
+        return
     db.mark_attendance(chat_id, status, "self")
     queue_backup_push("attendance")
     # Jawab ke baad menu wapas dikha do (taaki user menu tak na scroll kare)
@@ -726,6 +760,45 @@ async def on_attendance_btn(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"Koi baat nahi, kal se phir se milte hain! ⏰{extra}"
             f"\n\n👇 Aur kuch poochna ho toh MENU kholo:",
             reply_markup=after_kb)
+
+
+# ---------------- MAZE KARO (holiday home button) ----------------
+async def on_fun_btn(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """[🏖️ MAZE KARO AJJ] dabane par -> MOZ KARO message + holiday proof."""
+    q = update.callback_query
+    await q.answer()
+    chat_id = update.effective_chat.id
+    day = today_str()
+    hol = db.get_holiday(day)
+    if not hol:
+        await q.edit_message_text(
+            "😎 Aaj chhutti nahi hai! Attendance lagao 👇",
+            reply_markup=menu_open_kb())
+        return
+    base = MSG_HOLIDAY_BROADCAST.format(day=day)
+    try:
+        raw = bytes(hol["notice"]) if hol["notice"] else b""
+    except Exception:
+        raw = b""
+    if hol["type"] == "image" and raw:
+        try:
+            await q.edit_message_text(base + " 👇")
+            await context.bot.send_photo(
+                chat_id=int(chat_id),
+                photo=InputFile(io.BytesIO(raw), filename="holiday.jpg"),
+                caption=base,
+            )
+            return
+        except Exception as e:
+            log.warning("fun photo fail: %s", e)
+    # text proof ya fallback
+    txt = base
+    if raw:
+        try:
+            txt += "\n📝 Proof: " + raw.decode(errors="replace")[:1500]
+        except Exception:
+            pass
+    await q.edit_message_text(txt, reply_markup=menu_open_kb())
 
 
 # ---------------- MENU CALLBACKS ----------------
@@ -795,6 +868,10 @@ async def on_custom_date(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if is_admin(update):
             kb = admin_daily_kb()
             txt = "🙏 Malik APP, aaj ka kya status hai? 👇 (MENU niche hai)"
+        elif db.is_holiday(today_str()):
+            kb = menu_open_kb()  # holiday: sirf MAZE KARO + MENU KHOLO
+            txt = ("🏖️ AAJ TOH CHHUTTI HAI MOZ KARO 🎉 "
+                   "👇 Button dabao (menu bhi niche hai):")
         else:
             kb = menu_open_kb()  # upar 2 attendance buttons + MENU KHOLO
             txt = ("😎 Aaj college gaye the ya chhutti maar li? "
@@ -1242,6 +1319,7 @@ def build_app() -> Application:
     app.add_handler(CommandHandler("menu", cmd_menu))
     app.add_handler(CallbackQueryHandler(on_reg_choice, pattern="^reg:(yes|no)$"))
     app.add_handler(CallbackQueryHandler(on_attendance_btn, pattern="^att:"))
+    app.add_handler(CallbackQueryHandler(on_fun_btn, pattern="^fun:"))
     app.add_handler(CallbackQueryHandler(on_menu_open, pattern="^menu:open$"))
     app.add_handler(CallbackQueryHandler(on_menu_btn, pattern="^menu:[0-9]+$"))
     app.add_handler(CallbackQueryHandler(on_holiday_ask, pattern="^holiday:ask$"))
