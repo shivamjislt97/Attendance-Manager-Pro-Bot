@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Attendance App (Preview)</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div id="phone">
+
+  <!-- LOGIN -->
+  <section id="scr-login" class="screen active">
+    <h1>🎒 Attendance App</h1>
+    <p class="sub">UNIQUE ID + Roll se login karo</p>
+    <input id="in-uid" placeholder="UNIQUE ID (STU-XXXXXXXX)" autocomplete="off">
+    <input id="in-roll" placeholder="Roll number" autocomplete="off">
+    <button id="btn-login" class="primary">Login</button>
+    <p id="login-err" class="err"></p>
+    <details class="settings">
+      <summary>⚙️ Server setting</summary>
+      <input id="in-base" placeholder="http://server:8000">
+      <button id="btn-base">Save</button>
+    </details>
+  </section>
+
+  <!-- HOME -->
+  <section id="scr-home" class="screen">
+    <h2 id="home-hi">😎 Namaste!</h2>
+    <p id="home-date" class="sub"></p>
+    <div id="home-status" class="card">...</div>
+    <div class="row">
+      <button id="btn-present" class="primary">😎 PRESENT HU</button>
+      <button id="btn-chhutti" class="warn">😁 CHHUTTI</button>
+    </div>
+    <p id="home-msg" class="msg"></p>
+  </section>
+
+  <!-- CALENDAR -->
+  <section id="scr-cal" class="screen">
+    <div class="cal-head">
+      <button id="cal-prev">‹</button>
+      <h2 id="cal-title">...</h2>
+      <button id="cal-next">›</button>
+    </div>
+    <div class="legend">
+      <span><i class="dot present"></i>Present</span>
+      <span><i class="dot absent"></i>Absent</span>
+      <span><i class="dot holiday"></i>Holiday</span>
+      <span><i class="dot chutti"></i>Chhutti</span>
+    </div>
+    <div id="cal-grid" class="cal-grid"></div>
+    <div id="day-detail" class="card hidden"></div>
+  </section>
+
+  <!-- STATS -->
+  <section id="scr-stats" class="screen">
+    <h2>📊 Meri Attendance</h2>
+    <div class="ring-wrap"><div id="ring" class="ring">0%</div></div>
+    <div id="stats-cards" class="cards"></div>
+  </section>
+
+  <!-- CHAT -->
+  <section id="scr-chat" class="screen">
+    <h2>💬 Bot Chat</h2>
+    <div id="chips" class="chips"></div>
+    <div id="chat-box" class="chat-box"></div>
+    <div class="row">
+      <input id="in-chat" placeholder="0-7 ya DD/MM/YYYY...">
+      <button id="btn-chat" class="primary">➤</button>
+    </div>
+  </section>
+
+  <!-- ADMIN -->
+  <section id="scr-admin" class="screen">
+    <h2>🛠️ Admin</h2>
+    <button id="btn-count" class="primary">👥 Students Count</button>
+    <div id="count-out" class="card hidden"></div>
+    <div class="row">
+      <input id="in-lookup" placeholder="Roll / chat id">
+      <button id="btn-lookup" class="primary">🔍</button>
+    </div>
+    <div id="lookup-out" class="card hidden"></div>
+    <h3>🏖️ Holiday declare</h3>
+    <input id="in-hday" placeholder="DD/MM/YYYY">
+    <input id="in-htext" placeholder="Notice text (optional)">
+    <input id="in-hphoto" type="file" accept="image/*">
+    <button id="btn-holiday" class="warn">Declare karo</button>
+    <p id="admin-msg" class="msg"></p>
+  </section>
+
+  <!-- NAV -->
+  <nav id="nav" class="hidden">
+    <button data-scr="scr-home">🏠<small>Home</small></button>
+    <button data-scr="scr-cal">🗓️<small>Calendar</small></button>
+    <button data-scr="scr-stats">📊<small>Stats</small></button>
+    <button data-scr="scr-chat">💬<small>Chat</small></button>
+    <button data-scr="scr-admin" id="nav-admin">🛠️<small>Admin</small></button>
+    <button id="btn-logout">🚪<small>Exit</small></button>
+  </nav>
+</div>
+<script src="app.js"></script>
+</body>
+</html>

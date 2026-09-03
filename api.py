@@ -17,7 +17,9 @@ from datetime import date, timedelta
 from typing import Optional
 
 from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 import config
@@ -28,6 +30,17 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 API_PORT = int(os.environ.get("API_PORT", "8000"))
 
 app = FastAPI(title="Attendance API", version="1.0")
+
+# Web UI (phone/browser) kahin se bhi khule — CORS open + /app par static
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+_WEB_DIR = os.path.join(HERE, "web")
+if os.path.isdir(_WEB_DIR):
+    app.mount("/app", StaticFiles(directory=_WEB_DIR, html=True), name="app")
 
 
 # ---------------- startup: WAL + tokens table ----------------
@@ -276,8 +289,8 @@ def admin_lookup(key: str, _admin: str = Depends(_require_admin)):
 
 
 @app.post("/admin/holiday")
-async def admin_holiday(date: str, proof_text: str = "",
-                        proof: Optional[UploadFile] = None,
+async def admin_holiday(date: str = Form(...), proof_text: str = Form(""),
+                        proof: Optional[UploadFile] = File(None),
                         _admin: str = Depends(_require_admin)):
     import re
     if not re.match(r"^\d{2}/\d{2}/\d{4}$", date):
