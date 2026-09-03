@@ -49,8 +49,11 @@ BTN_MENU = "📋 MENU KHOLO"
 CB_MENU_OPEN = "menu:open"
 BTN_EXIT = "❌ EXIT"
 CB_EXIT = "exit:cancel"
-BTN_PROOF = "😈 📎 Proof dekho 👹"
+BTN_PROOF = "😈😈 PROOF CHAHIYE KYA 👹👹"
 CB_PROOF_PREFIX = "proof:"
+BTN_EXIT_LEAVE = "EXIT 🚪🚶‍♂️‍➡️"
+MSG_PROOF_TEASE = "😈😈 Hmm mujh per vishvash nhi hai 😤😤 proof maang raha hai 🤬🤬"
+MSG_PROOF_HAPPY = "😎Abh toh bohot kush hoga 🦉"
 
 MENU_BUTTONS = [
     "📊 Meri kitni percent attendance hai?",
@@ -738,9 +741,10 @@ async def on_custom_date(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # ---------------- HOLIDAY PROOF (user: record me button dabao -> saved proof) ----------------
 async def on_proof_btn(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Custom-date record wale [😈 📎 Proof dekho 👹] button par click.
+    """Custom-date record wale [😈😈 PROOF CHAHIYE KYA 👹👹] button par click.
 
-    Saved holiday proof (photo/text) SIRF dabane wale user ko bhejta hai.
+    Order: tease -> proof (photo/text) -> happy + EXIT button.
+    Proof SIRF dabane wale user ko jata hai.
     """
     q = update.callback_query
     await q.answer()
@@ -765,9 +769,11 @@ async def on_proof_btn(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not raw:
         await q.message.reply_text(f"❌ {day} ka proof khaali hai.")
         return
+    exit_kb = InlineKeyboardMarkup(
+        [[InlineKeyboardButton(BTN_EXIT_LEAVE, callback_data=CB_EXIT)]])
     try:
+        await q.message.reply_text(MSG_PROOF_TEASE)
         if hol["type"] == "image":
-            await q.message.reply_text(f"📎 Holiday proof ({day}) 🏖️ 👇")
             await context.bot.send_photo(
                 chat_id=update.effective_chat.id,
                 photo=InputFile(io.BytesIO(raw), filename="holiday.jpg"),
@@ -777,6 +783,7 @@ async def on_proof_btn(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await q.message.reply_text(
                 f"📎 Holiday proof ({day}) 🏖️\n📝 "
                 + raw.decode(errors="replace")[:1500])
+        await q.message.reply_text(MSG_PROOF_HAPPY, reply_markup=exit_kb)
     except Exception as e:
         log.warning("proof send fail %s: %s", day, e)
         await q.message.reply_text("❌ Proof bhejne me dikkat aayi, dobara try karo.")
