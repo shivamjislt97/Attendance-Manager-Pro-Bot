@@ -1,0 +1,98 @@
+BOT STATEMENTS LIST — Har kaam ke liye
+=========================================
+
+1. START / WELCOME
+-----------------
+- 😕 Are! Tum kaun ho bhai aur mujhse kya kaam hai!
+- 😎 Kya Registration karwana hai apni attendance mujhse manage karwane ke liye?
+- theek hai baad mein baat karenge BYE mere DOST 👋
+- 🙏 Namaste Malik APP! (aaj: DD/MM/YYYY)
+- 😎 {naam}, aaj college gaye the ya chhutti maar li? 👇 Niche button dabao
+
+2. REGISTRATION (step + verify)
+-------------------------------
+- 🧑 Apna naam likh kar bhejo mujhe:
+- Malik APP 🙏, apna shubh-naam likh kar bhejiye:
+- ✅ Naam save ho gaya: {naam}
+- 🏷️ Tumhari kya branch hai? (button dabao):
+- ✅ Branch save ho gayi: {branch}
+- 🎓 Tumhare B.Tech ka kaun sa YEAR hai? (button dabao):
+- Malik APP 🙏, aap kis YEAR mein hain? (button dabaiye):
+- ✅ Year save ho gaya: {year}
+- 🔢 Apna ROLL number bhejo (same naam wale students mein confusion na ho):
+- Malik APP 🙏, apna ROLL number bhejiye:
+- ✅ Roll number save ho gaya: {roll}
+- 📝 Tumhara data: 👤 {naam} / 🏷️ {branch} / 🎓 {year} / 🔢 {roll}
+- Kya kuch change karna hai?
+- Malik APP 🙏, kya kuch change karna hai?
+- Kya change karna hai? Ye bhejo: 1️⃣ naam 2️⃣ branch 3️⃣ year 4️⃣ roll_no
+- ✅ Change field select: {field}
+- ✅ Theek hai, koi change nahi...
+- Ye samajh nahi aaya! 'naam', 'branch', 'year', 'roll_no' likho, 'kuch change nahi karna' likho, ya EXIT dabao.
+- ✅ Verify: registration save ho gaya! 👤/🏷️/🎓/🔢
+- 🎉 Registration COMPLETE! 🆔 Tumhari UNIQUE ID: {uid} ⚠️ Isse sambhal kar rakho ya kahi likh lo — baad mein kaam aayegi jab apna ATTENDANCE record wapus chahiye hoga!
+- 🎉 Malik APP, aapka registration ho gaya! 🙏 🆔 UNIQUE ID: {uid} (Issse sambhal kar rakhiye!)
+- 🙏 Aaj college gaye the ya chhutti? 👇 Button dabao (menu bhi niche hai):
+- 🙏 Aaj ka kya status hai?
+
+3. ATTENDANCE BUTTON
+-------------------
+- ✅ Verify: aaj ({date}) ka PRESENT save ho gaya!
+- TAREEF (random 1/3):
+  a) Wah! Shabash! 🎉 Aaj tum present ho — dedication ka koi jawab nahi! ⭐
+  b) Bahut badhiya! 🌟 Attendance time par laga di — keep it up, hero! 💪
+  c) Zabardast! 😎 Tumhari punctuality ka koi jawab nahi. Aaj ka din tumhara! 🏆
+- ✅ Verify: aaj ({date}) ki CHHUTTI save ho gayi!
+- 😁 Theek hai dost, aaj ki CHHUTTI maar li! 🎬 Koi baat nahi, kal se phir se milte hain! ⏰
+- 🏖️ Waise aaj college band tha! Proof: ... (holiday wale din extra)
+- Pehle registration karwao! 'hi' bhejo 😊
+- 👇 Aur kuch poochna ho toh MENU kholo:
+
+4. MENU (9 buttons)
+------------------
+- 👇 MENU — jo bhi poochna ho, button dabao:
+- 👇 MENU — baaki ke 8 options (admin):
+- 📊 Meri kitni percent attendance hai?
+- 🏫 Mein total kitne din college gaya tha
+- 😴 Meri total kitni chutti hai abhi
+- 🎒 Kitne din college khula tha
+- 🔒 Kitne din band tha
+- 📅 Sirf iss mahine ka record chahiye
+- 🚫 Kon konsi date ko mein absent tha
+- ✅ Kon konsi date ko mein present tha
+- 🗓️ Custom date record chahiye
+- ✅ Verify: tumhara sawal mil gaya!
+- 📊 ATTENDANCE REPORT / 👤 naam|branch|year|Roll / 🎒 Khule / 🔒 Band / ✅ Present / 😁 Chutti / 🚫 Absent / 📊 %
+- 🏫 TOTAL COLLEGE GAYE DIN / 😴 TOTAL CHHUTTI / 🎒 COLLEGE KHULA THA / 🔒 COLLEGE BAND THA / 📅 ISS MAHINE / 🚫 ABSENT DATES / ✅ PRESENT DATES
+- 🗓️ Date bhejo DD/MM/YYYY mein (jaise 02/09/2026):
+- ❌ Format galat hai! DD/MM/YYYY bhejo (jaise 02/09/2026):
+- ✅ Verify: record nikaal diya! 🗓️ RECORD FOR {date}:
+- 🏖️ Us din COLLEGE BAND tha (chhutti)! 🎉
+- ✅/😁/🚫/🏖️ Status: X (by Y)
+- ❓ Us din koi record nahi mila.
+
+5. HOLIDAY (admin)
+-----------------
+- Malik APP 🙏, naya College Holiday Notice bhej dijiye (image ya text, jo bhi sahi lage) 📩 💡 Aaj ke liye bas notice, Future ke liye DD/MM/YYYY pehle likho (jaise 10/09/2026...)
+- ✅ Verify: holiday notice SAVE ho gaya! 📸/📝 Date: {day} — {50 char}
+- Broadcast (sabko instant + uss din subah): 🏖️ AAJ TOH CHHUTTI HAI MOZ KARO 🎉 📅 Date: {day} + 📝 {proof / Proof: text} (photo caption me)
+- 🏖️ Holiday declare kar diya gaya hai! ✅ 📅 Date | 📎 Proof: image/text | 👥 {n} entries HOLIDAY me update 📢 Broadcast ✅ X ko bheja, ❌ Y fail. Ye holiday data se hi sabki attendance calculate hogi — us din kisi ko bewajah chhutti/absent nahi lagegi. 🎯
+
+6. LOOKUP (admin)
+----------------
+- 🔍 Kisse dhundo Malik APP? Roll number ya chat id bhejiye:
+- ✅ Verify: student record mil gaya! 🔍 STUDENT RECORD (Malik APP ke liye) + stats
+- 😔 Verify: '{key}' se koi student nahi mila. Dobara try karo ya EXIT dabao:
+- ✅ Verify: record compute nahi ho paya. ❌
+
+7. SCHEDULED (auto)
+------------------
+- Daily 8:15 AM: 🙏 Malik APP, aaj ({date}) ka kya status hai? / ⏰ Aaj ({date}) ki attendance KAB lagaoge? Agar nahi lagai toh ABSENT laga dunga! 😠
+- Reminder: 🙏 Malik APP, yaad dila rahe hain — aaj ka status? / ⏰ Yaad hai? Attendance abhi tak nahi lagai! Button daba do warna ABSENT laga dunga! 😠
+- Auto-ABSENT 5 PM: 😡🤬🤬 Oye! Tumne ajj ki chhuti maarli mujhe bina batay abhi 🤪😜😓 ruko tum hari absent lagata hu. Le lagadi abh kiya karoge 😁😁😁 📅 Date: {date}
+
+8. EXIT / CANCEL (har jagah)
+----------------------------
+- ❌ EXIT (button)
+- ❌ Bahar nikalne ke liye EXIT dabao ya /cancel bhejo. (hint)
+- ❌ Cancel kar diya, bahar aa gaye. ✅ Adhura data discard kar diya — kuch save nahi hua. /start se dobara shuru karo. 😊

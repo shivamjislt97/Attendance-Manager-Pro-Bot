@@ -1,0 +1,9 @@
+# ---> .env gitignored rakho <---
+__pycache__/
+*.pyc
+*.bak
+*.bak-*
+.env
+logs/*.log
+run.lock
+run.lockdir/
