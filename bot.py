@@ -48,6 +48,8 @@ BTN_CHHUTTI = "😁 AAJ KI CHHUTTI MAAR LI"
 BTN_HOLIDAY = "🏖️ AAJ College ki Chhutti hai"
 BTN_NOTICE = "📢 Update College Holiday Notice"
 BTN_LOOKUP = "🔍 KISI STUDENT KA RECORD NIKALO"
+BTN_COUNT = "👥 STUDENTS COUNT DEKHO"
+CB_COUNT = "count:students"
 BTN_MENU = "📋 MENU KHOLO"
 CB_MENU_OPEN = "menu:open"
 BTN_MAZE = "🏖️ MAZE KARO AJJ"
@@ -280,6 +282,45 @@ def queue_backup_push(reason: str = "event") -> None:
     threading.Thread(target=_run, daemon=True).start()
 
 
+def students_count_report() -> str:
+    """Total + branch-wise + year-wise + branch x year matrix (naam-list nahi)."""
+    rows = db.get_all_students()
+    by_branch: dict[str, int] = {}
+    by_year: dict[str, int] = {}
+    matrix: dict[str, dict[str, int]] = {}
+    for r in rows:
+        b, y = r["branch"] or "-", r["year"] or "-"
+        by_branch[b] = by_branch.get(b, 0) + 1
+        by_year[y] = by_year.get(y, 0) + 1
+        matrix.setdefault(b, {})[y] = matrix.setdefault(b, {}).get(y, 0) + 1
+    lines = [f"👥 Total students: {len(rows)}", "",
+             "🏷️ Branch-wise:"]
+    lines += [f"  • {b}: {n}" for b, n in sorted(by_branch.items())]
+    lines += ["", "🎓 Year-wise:"]
+    lines += [f"  • {y}: {n}" for y, n in sorted(by_year.items())]
+    lines += ["", "🧮 Branch × Year:"]
+    for b in sorted(matrix):
+        lines.append("  • " + b + ": " + ", ".join(
+            f"{y}={n}" for y, n in sorted(matrix[b].items())))
+    return "\n".join(lines)
+
+
+async def notify_admin_new_registration(student: dict, context) -> None:
+    """Naye student registration par admin ko instant full-detail alert."""
+    total = len(db.get_all_students())
+    await context.bot.send_message(
+        chat_id=int(config.ADMIN_CHAT_ID),
+        text=("🔔 Naya registration! ✅\n"
+              f"👤 Naam: {student.get('naam')}\n"
+              f"🏷️ Branch: {student.get('branch')} | "
+              f"🎓 Year: {student.get('year')}\n"
+              f"🔢 Roll: {student.get('roll_no')} | "
+              f"🆔 {student.get('unique_id')}\n"
+              f"💬 Chat ID: {student.get('chat_id')} | "
+              f"📅 {today_str()}\n"
+              f"👥 Total students: {total}"))
+
+
 def exit_kb_row() -> list:
     """Har inline keyboard ki last-row me EXIT button."""
     return [InlineKeyboardButton(BTN_EXIT, callback_data=CB_EXIT)]
@@ -362,6 +403,7 @@ def admin_daily_kb() -> InlineKeyboardMarkup:
         [InlineKeyboardButton(BTN_HOLIDAY, callback_data="holiday:ask")],
         [InlineKeyboardButton(BTN_NOTICE, callback_data="holiday:ask")],
         [InlineKeyboardButton(BTN_LOOKUP, callback_data="lookup:ask")],
+        [InlineKeyboardButton(BTN_COUNT, callback_data=CB_COUNT)],
         [InlineKeyboardButton(MENU_BUTTONS[0], callback_data="menu:0")],
         [InlineKeyboardButton(BTN_MENU, callback_data=CB_MENU_OPEN)],
     ])
@@ -607,6 +649,17 @@ async def reg_change(update: Update, context: ContextTypes.DEFAULT_TYPE):
                   (uid, str(chat_id)))
     REG.pop(chat_id, None)
     queue_backup_push("registration")
+    if not ctx.get("is_admin"):
+        # Naya student register hua -> admin ko instant alert (fail-safe)
+        try:
+            await notify_admin_new_registration(
+                {"naam": ctx.get("naam") or name_for(update),
+                 "branch": ctx.get("branch") or "-",
+                 "year": ctx.get("year") or "-",
+                 "roll_no": ctx.get("roll_no") or "-",
+                 "unique_id": uid, "chat_id": str(chat_id)}, context)
+        except Exception as e:
+            log.warning("reg-alert fail: %s", e)
 
     if ctx.get("is_admin"):
         await q.edit_message_text(
@@ -1127,6 +1180,24 @@ async def on_lookup_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return ConversationHandler.END
 
 
+# ---------------- ADMIN COUNT ----------------
+async def on_students_count(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """[👥 STUDENTS COUNT DEKHO] -> total + branch/year/matrix (sirf admin)."""
+    q = update.callback_query
+    await q.answer()
+    if not is_admin(update):
+        await q.edit_message_text("⛔ Ye sirf admin (Malik APP) ke liye hai. 😊")
+        return
+    try:
+        await q.edit_message_text(
+            "✅ Verify: students count nikaal diya!\n\n"
+            + students_count_report(),
+            reply_markup=admin_daily_kb())
+    except Exception as e:
+        log.warning("count fail: %s", e)
+        await q.edit_message_text("❌ Count nikaalne me dikkat aayi, dobara try karo.")
+
+
 # ---------------- SCHEDULED JOBS ----------------
 async def daily_job(context: ContextTypes.DEFAULT_TYPE):
     """8:15 AM IST - sab registered users se poocho (SUNDAY skip, holiday par MOZ KARO)."""
@@ -1324,6 +1395,7 @@ def build_app() -> Application:
     app.add_handler(CallbackQueryHandler(on_menu_btn, pattern="^menu:[0-9]+$"))
     app.add_handler(CallbackQueryHandler(on_holiday_ask, pattern="^holiday:ask$"))
     app.add_handler(CallbackQueryHandler(on_lookup_ask, pattern="^lookup:ask$"))
+    app.add_handler(CallbackQueryHandler(on_students_count, pattern="^count:students$"))
     # Date-step AAJ button conversation ke bahar bhi fire hona chahiye
     app.add_handler(CallbackQueryHandler(on_holiday_date_btn, pattern="^hol:today$"))
     # Holiday proof button (custom-date record) — kisi bhi user ke liye
