@@ -75,7 +75,7 @@ button:disabled{opacity:.5}
   background:conic-gradient(var(--green) var(--p,0%),#243b5c 0);
   box-shadow:0 8px 28px rgba(34,197,94,.25);position:relative}
 .ring::after{content:'';position:absolute;inset:14px;border-radius:50%;background:var(--bg)}
-.ring{color:#fff}
+.ring span{position:relative;z-index:1;color:#fff}
 .cards{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .cards .card{margin:0;text-align:center;font-weight:600}
 /* chat */

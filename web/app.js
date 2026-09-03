@@ -158,7 +158,7 @@ async function loadStats() {
   try {
     const s = await api('/stats');
     const ring = document.getElementById('ring');
-    ring.textContent = s.percent + '%';
+    document.getElementById('ring-txt').textContent = s.percent + '%';
     ring.style.setProperty('--p', s.percent + '%');
     box.innerHTML = '';
     [['🎒 Khule din', s.college_open], ['🔒 Band din', s.college_closed],
