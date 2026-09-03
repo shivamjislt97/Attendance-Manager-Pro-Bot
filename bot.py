@@ -331,10 +331,11 @@ def menu_result_text(chat_id: str, which: str, custom_date=None) -> str:
                    or "  🎉 (kabhi absent nahi hua!)")
                 + "\n\n(sab DD/MM/YYYY mein — latest date sabse upar)")
     if which == BTN_PRESENT_D:
+        asc = stats_mod.sort_dates_asc(s["present_dates"])
         return ("✅ PRESENT THA IN DATES PAR:\n\n"
-                + ("\n".join(f"  • {d}" for d in s["present_dates"])
+                + ("\n".join(f"  • {d}" for d in asc)
                    or "  (abhi koi entry nahi)")
-                + "\n\n(sab DD/MM/YYYY mein — latest date sabse upar)")
+                + "\n\n(sab DD/MM/YYYY mein — sabse purani date sabse upar)")
     return "Samajh nahi aaya, dobara try karo!"
 
 

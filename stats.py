@@ -39,6 +39,11 @@ def sort_dates_desc(dstrs: list[str]) -> list[str]:
     return sorted(dstrs, key=_key, reverse=True)
 
 
+def sort_dates_asc(dstrs: list[str]) -> list[str]:
+    """DD/MM/YYYY strings ko OLDEST-FIRST (sabse purani date sabse upar) sort karo."""
+    return sort_dates_desc(dstrs)[::-1]
+
+
 def fmt(d: date) -> str:
     return d.strftime("%d/%m/%Y")
 
