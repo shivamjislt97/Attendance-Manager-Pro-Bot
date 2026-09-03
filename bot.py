@@ -49,6 +49,8 @@ BTN_MENU = "📋 MENU KHOLO"
 CB_MENU_OPEN = "menu:open"
 BTN_EXIT = "❌ EXIT"
 CB_EXIT = "exit:cancel"
+BTN_PROOF = "😈 📎 Proof dekho 👹"
+CB_PROOF_PREFIX = "proof:"
 
 MENU_BUTTONS = [
     "📊 Meri kitni percent attendance hai?",
@@ -698,7 +700,12 @@ async def on_custom_date(update: Update, context: ContextTypes.DEFAULT_TYPE):
             parts.append(f"{emoji} Status: {row['status']} (by {row['marked_by']})")
         elif not hol:
             parts.append("❓ Us din koi record nahi mila.")
-        await update.message.reply_text("\n".join(parts))
+        kb = None
+        if hol:
+            kb = InlineKeyboardMarkup(
+                [[InlineKeyboardButton(BTN_PROOF,
+                                       callback_data=CB_PROOF_PREFIX + txt)]])
+        await update.message.reply_text("\n".join(parts), reply_markup=kb)
         return
 
     # ---- CASE 2: REGISTERED user -> design doc section 4 ----
@@ -727,6 +734,52 @@ async def on_custom_date(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 [[InlineKeyboardButton(BTN_YES, callback_data="reg:yes"),
                   InlineKeyboardButton(BTN_NO, callback_data="reg:no")]]),
         )
+
+
+# ---------------- HOLIDAY PROOF (user: record me button dabao -> saved proof) ----------------
+async def on_proof_btn(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Custom-date record wale [😈 📎 Proof dekho 👹] button par click.
+
+    Saved holiday proof (photo/text) SIRF dabane wale user ko bhejta hai.
+    """
+    q = update.callback_query
+    await q.answer()
+    day = q.data.split(":", 1)[1] if ":" in (q.data or "") else ""
+    if not re.match(r"^\d{2}/\d{2}/\d{4}$", day):
+        await q.message.reply_text("❌ Galat date! Dobara record nikaal kar try karo.")
+        return
+    try:
+        stats_mod._parse_ddmmyyyy(day)
+    except Exception:
+        await q.message.reply_text("❌ Galat date! Dobara record nikaal kar try karo.")
+        return
+    hol = db.get_holiday(day)
+    if not hol:
+        await q.message.reply_text(
+            f"❌ {day} ka proof nahi mila (holiday record nahi hai).")
+        return
+    try:
+        raw = bytes(hol["notice"]) if hol["notice"] else b""
+    except Exception:
+        raw = b""
+    if not raw:
+        await q.message.reply_text(f"❌ {day} ka proof khaali hai.")
+        return
+    try:
+        if hol["type"] == "image":
+            await q.message.reply_text(f"📎 Holiday proof ({day}) 🏖️ 👇")
+            await context.bot.send_photo(
+                chat_id=update.effective_chat.id,
+                photo=InputFile(io.BytesIO(raw), filename="holiday.jpg"),
+                caption=f"📎 Holiday proof ({day}) 🏖️",
+            )
+        else:
+            await q.message.reply_text(
+                f"📎 Holiday proof ({day}) 🏖️\n📝 "
+                + raw.decode(errors="replace")[:1500])
+    except Exception as e:
+        log.warning("proof send fail %s: %s", day, e)
+        await q.message.reply_text("❌ Proof bhejne me dikkat aayi, dobara try karo.")
 
 
 # ---------------- HOLIDAY NOTICE (admin) — 2 STEP: pehle DATE, phir PROOF ----------------
@@ -1089,6 +1142,8 @@ def build_app() -> Application:
     app.add_handler(CallbackQueryHandler(on_lookup_ask, pattern="^lookup:ask$"))
     # Date-step AAJ button conversation ke bahar bhi fire hona chahiye
     app.add_handler(CallbackQueryHandler(on_holiday_date_btn, pattern="^hol:today$"))
+    # Holiday proof button (custom-date record) — kisi bhi user ke liye
+    app.add_handler(CallbackQueryHandler(on_proof_btn, pattern="^proof:"))
     # FIX: photo wait-state routing (conversation END hone par bhi save ho)
     app.add_handler(MessageHandler(filters.PHOTO, on_photo_global))
     app.add_handler(MessageHandler(
