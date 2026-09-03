@@ -11,6 +11,9 @@ import io
 import logging
 import random
 import re
+import subprocess
+import threading
+import time
 import uuid
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, InputFile, Update
@@ -217,6 +220,62 @@ def mark_holiday_attendance(day: str) -> int:
         db.mark_attendance(stu["chat_id"], "HOLIDAY", reason, day)
         n += 1
     return n
+
+
+def export_holiday_proof_file(day: str, ntype: str, raw: bytes) -> str | None:
+    """Holiday proof ko holiday_proofs/ me file banao (GitHub par browsable).
+
+    image -> DD-MM-YYYY.jpg, text -> DD-MM-YYYY.txt. Fail-safe: error par None.
+    """
+    import os
+    try:
+        base = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                            "holiday_proofs")
+        os.makedirs(base, exist_ok=True)
+        fname = day.replace("/", "-") + (".jpg" if ntype == "image" else ".txt")
+        path = os.path.join(base, fname)
+        mode = "wb" if ntype == "image" else "w"
+        with open(path, mode) as f:
+            f.write(raw if ntype == "image" else raw.decode(errors="replace"))
+        return path
+    except Exception as e:
+        log.warning("holiday proof export fail %s: %s", day, e)
+        return None
+
+
+_BACKUP_LOCK = threading.Lock()
+_BACKUP_LAST_PUSH = 0.0
+BACKUP_DEBOUNCE_SEC = 300  # per-event push max 1 per 5 min
+
+
+def queue_backup_push(reason: str = "event") -> None:
+    """Registration/attendance/holiday change par background me backup.sh chalao.
+
+    Debounced + fail-safe: user reply kabhi block nahi hota, push fail
+    to sirf log hota hai (local commit safe, next run retry).
+    """
+    global _BACKUP_LAST_PUSH
+    import os
+    now = time.time()
+    with _BACKUP_LOCK:
+        if now - _BACKUP_LAST_PUSH < BACKUP_DEBOUNCE_SEC:
+            return
+        _BACKUP_LAST_PUSH = now
+
+    def _run():
+        try:
+            script = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                  "backup.sh")
+            r = subprocess.run(["bash", script], capture_output=True,
+                               text=True, timeout=120)
+            (log.info("backup push ok (%s)", reason)
+             if r.returncode == 0
+             else log.warning("backup push fail (%s): %s", reason,
+                              (r.stderr or r.stdout)[-300:]))
+        except Exception as e:
+            log.warning("backup thread fail (%s): %s", reason, e)
+
+    threading.Thread(target=_run, daemon=True).start()
 
 
 def exit_kb_row() -> list:
@@ -524,6 +583,7 @@ async def reg_change(update: Update, context: ContextTypes.DEFAULT_TYPE):
         c.execute("UPDATE students SET unique_id = ? WHERE chat_id = ?",
                   (uid, str(chat_id)))
     REG.pop(chat_id, None)
+    queue_backup_push("registration")
 
     if ctx.get("is_admin"):
         await q.edit_message_text(
@@ -643,6 +703,7 @@ async def on_attendance_btn(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     day = today_str()
     db.mark_attendance(chat_id, status, "self")
+    queue_backup_push("attendance")
     # Jawab ke baad menu wapas dikha do (taaki user menu tak na scroll kare)
     after_kb = (admin_extended_menu_kb() if is_admin(update)
                 else InlineKeyboardMarkup([[
@@ -928,6 +989,8 @@ async def on_holiday_notice(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(
             f"✅ Verify: holiday notice SAVE ho gaya! 📝 Date: {day} — {proof_text[:50]}")
         ntype = "text"
+    # Holiday proof file export (GitHub par browsable backup)
+    export_holiday_proof_file(day, ntype, raw)
     # Holiday wale din sabki attendance HOLIDAY me update (bewajah present/absent na gine)
     n_updated = mark_holiday_attendance(day)
     # INSTANT BROADCAST: declare hote hi sabko message + proof
@@ -941,6 +1004,7 @@ async def on_holiday_notice(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "Ye holiday data se hi sabki attendance calculate hogi — "
         "us din kisi ko bewajah chhutti/absent nahi lagegi. 🎯",
         reply_markup=admin_daily_kb())
+    queue_backup_push("holiday")
     return ConversationHandler.END
 
 
@@ -1061,6 +1125,22 @@ async def reminder_job(context: ContextTypes.DEFAULT_TYPE):
             log.warning("reminder fail %s: %s", cid, e)
 
 
+async def backup_job(context: ContextTypes.DEFAULT_TYPE):
+    """Roz 2 AM IST - backup.sh chalao (code + DB + dump + proofs -> GitHub)."""
+    import os
+    try:
+        script = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                              "backup.sh")
+        r = await asyncio.to_thread(subprocess.run, ["bash", script],
+                                    capture_output=True, text=True, timeout=180)
+        if r.returncode == 0:
+            log.info("nightly backup ok")
+        else:
+            log.warning("nightly backup fail: %s", (r.stderr or r.stdout)[-300:])
+    except Exception as e:
+        log.warning("nightly backup error: %s", e)
+
+
 async def auto_absent_job(context: ContextTypes.DEFAULT_TYPE):
     """5:00 PM (cutoff) ke baad - jinhone nahi lagayi unhe ABSENT mark karo."""
     from datetime import datetime
@@ -1068,17 +1148,21 @@ async def auto_absent_job(context: ContextTypes.DEFAULT_TYPE):
     if dt.weekday() == 6 or db.is_holiday(today_str()):
         return
     day = today_str()
+    marked_any = False
     for stu in db.get_all_students():
         cid = stu["chat_id"]
         if db.get_attendance(cid, day):
             continue
         db.mark_attendance(cid, "ABSENT", "bot-auto")
+        marked_any = True
         try:
             await context.bot.send_message(
                 int(cid),
                 MSG_AUTO_ABSENT.format(day=day))
         except Exception as e:
             log.warning("absent-notify fail %s: %s", cid, e)
+    if marked_any:
+        queue_backup_push("auto-absent")
 
 
 # ---------------- MAIN ----------------
@@ -1189,7 +1273,13 @@ def build_app() -> Application:
                 hour=config.CUTOFF_HOUR, minute=config.CUTOFF_MINUTE + 1,
                 tzinfo=stats_mod._TZ),
             name="auto_absent_1701")
-        log.info("Job queue scheduled: daily 8:15 AM, hourly reminder, 5:01 PM auto-absent (IST)")
+        app.job_queue.run_daily(
+            backup_job,
+            time=__import__("datetime").time(
+                hour=2, minute=0,
+                tzinfo=stats_mod._TZ),
+            name="backup_2am")
+        log.info("Job queue scheduled: daily 8:15 AM, hourly reminder, 5:01 PM auto-absent, 2 AM backup (IST)")
     except ImportError:
         log.warning("JobQueue nahi mila - scheduled jobs disabled (pip install 'python-telegram-bot[job-queue]')")
 
