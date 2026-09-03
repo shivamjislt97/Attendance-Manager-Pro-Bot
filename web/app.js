@@ -20,6 +20,8 @@ async function api(path, opts = {}) {
 function show(id) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.getElementById(id).classList.add('active');
+  document.querySelectorAll('#nav button[data-scr]').forEach(b =>
+    b.classList.toggle('active', b.dataset.scr === id));
   if (id === 'scr-cal') loadCal();
   if (id === 'scr-stats') loadStats();
   if (id === 'scr-home') loadHome();

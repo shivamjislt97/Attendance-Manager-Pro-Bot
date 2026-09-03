@@ -99,3 +99,5 @@ button:disabled{opacity:.5}
 #nav button{flex:1;background:none;font-size:21px;padding:9px 0 12px;border-radius:0;color:var(--mut)}
 #nav button:active{transform:none}
 #nav button small{display:block;font-size:10px;font-weight:600}
+#nav button.active{color:var(--green);box-shadow:inset 0 3px 0 var(--green)}
+#nav button.active small{color:var(--green)}
