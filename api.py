@@ -66,8 +66,8 @@ def _startup() -> None:
 
 # ---------------- auth ----------------
 class LoginIn(BaseModel):
-    unique_id: str
-    roll_no: str
+    unique_id: Optional[str] = None
+    roll_no: Optional[str] = None
 
 
 def _get_chat(x_token: Optional[str] = Header(default=None)) -> str:
@@ -98,17 +98,33 @@ def health():
 
 @app.post("/login")
 def login(body: LoginIn):
-    uid = body.unique_id.strip()
-    stu = None
+    """Login UNIQUE ID se, Roll number se, ya dono se (koi ek chalega)."""
+    uid = (body.unique_id or "").strip()
+    roll = (body.roll_no or "").strip()
+    if not uid and not roll:
+        raise HTTPException(status_code=400,
+                            detail="UNIQUE ID ya roll number — koi ek do")
     c = sqlite3.connect(config.DB_PATH, timeout=30)
     try:
         c.row_factory = sqlite3.Row
-        stu = c.execute("SELECT * FROM students WHERE unique_id = ?",
-                        (uid,)).fetchone()
+        if uid:
+            stu = c.execute("SELECT * FROM students WHERE unique_id = ?",
+                            (uid,)).fetchone()
+            if stu is None:
+                raise HTTPException(status_code=401, detail="UNIQUE ID galat")
+            if roll and str(stu["roll_no"]) != roll:
+                raise HTTPException(status_code=401,
+                                    detail="Roll number match nahi hua")
+        else:
+            rows = c.execute("SELECT * FROM students WHERE roll_no = ?"
+                             " ORDER BY chat_id", (roll,)).fetchall()
+            if not rows:
+                raise HTTPException(status_code=401, detail="Roll galat")
+            if len(rows) > 1:
+                raise HTTPException(status_code=409, detail="Is roll par kai student hain — UNIQUE ID se login karo")
+            stu = rows[0]
     finally:
         c.close()
-    if stu is None or str(stu["roll_no"]) != body.roll_no.strip():
-        raise HTTPException(status_code=401, detail="UNIQUE ID ya roll galat")
     token = secrets.token_urlsafe(32)
     c = sqlite3.connect(config.DB_PATH, timeout=30)
     try:
