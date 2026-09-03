@@ -111,11 +111,6 @@ MSG_HOLIDAY_BROADCAST = (
     "🏖️ AAJ TOH CHHUTTI HAI MOZ KARO 🎉\n"
     "📅 Date: {day}"
 )
-MSG_EXIT_DONE = (
-    "❌ Cancel kar diya, bahar aa gaye. ✅\n"
-    "Adhura data discard kar diya — kuch save nahi hua.\n"
-    "/start se dobara shuru karo. 😊"
-)
 MSG_EXIT_HINT = "\n\n❌ Bahar nikalne ke liye EXIT dabao ya /cancel bhejo."
 MSG_AUTO_ABSENT = (
     "😡🤬🤬 Oye! Tumne ajj ki chhuti maarli mujhe bina batay abhi "
@@ -591,26 +586,46 @@ async def reg_what_change(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 # ---------------- EXIT (universal) ----------------
+def home_after_exit(update: Update):
+    """EXIT ke baad kahan bhejo: admin->admin home, student->student home,
+    naye user->welcome + registration buttons."""
+    chat_id = update.effective_chat.id
+    if is_admin(update) and db.get_student(chat_id):
+        return ("✅ Bahar aa gaye. 🙏 Malik APP, home par wapas 👇",
+                admin_daily_kb())
+    if db.get_student(chat_id):
+        return ("✅ Bahar aa gaye. 😎 Home par wapas — "
+                "aaj college gaye the ya chhutti maar li? 👇",
+                menu_open_kb())
+    return (MSG_WELCOME[0] + "\n\n" + MSG_WELCOME[1],
+            InlineKeyboardMarkup(
+                [[InlineKeyboardButton(BTN_YES, callback_data="reg:yes"),
+                  InlineKeyboardButton(BTN_NO, callback_data="reg:no")]]))
+
+
 async def on_exit_btn(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Inline EXIT button -> adhura kaam discard karke bahar."""
+    """Inline EXIT button -> adhura kaam discard karke HOME par wapas."""
     q = update.callback_query
     await q.answer()
     chat_id = update.effective_chat.id
     clear_wait_state(chat_id)
     context.user_data.pop("awaiting_custom_date", None)
+    text, kb = home_after_exit(update)
     try:
-        await q.edit_message_text(MSG_EXIT_DONE)
+        await q.edit_message_text(text, reply_markup=kb)
     except Exception:
-        await context.bot.send_message(chat_id=int(chat_id), text=MSG_EXIT_DONE)
+        await context.bot.send_message(chat_id=int(chat_id), text=text,
+                                       reply_markup=kb)
     return ConversationHandler.END
 
 
 async def on_exit_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """'exit' text ya /cancel command -> discard karke bahar."""
+    """'exit' text ya /cancel command -> discard karke HOME par wapas."""
     chat_id = update.effective_chat.id
     clear_wait_state(chat_id)
     context.user_data.pop("awaiting_custom_date", None)
-    await update.message.reply_text(MSG_EXIT_DONE)
+    text, kb = home_after_exit(update)
+    await update.message.reply_text(text, reply_markup=kb)
     return ConversationHandler.END
 
 
