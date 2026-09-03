@@ -743,7 +743,7 @@ async def on_custom_date(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def on_proof_btn(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Custom-date record wale [😈😈 PROOF CHAHIYE KYA 👹👹] button par click.
 
-    Order: tease -> proof (photo/text) -> happy + EXIT button.
+    Order: proof (photo/text) -> tease -> happy + EXIT button.
     Proof SIRF dabane wale user ko jata hai.
     """
     q = update.callback_query
@@ -772,7 +772,6 @@ async def on_proof_btn(update: Update, context: ContextTypes.DEFAULT_TYPE):
     exit_kb = InlineKeyboardMarkup(
         [[InlineKeyboardButton(BTN_EXIT_LEAVE, callback_data=CB_EXIT)]])
     try:
-        await q.message.reply_text(MSG_PROOF_TEASE)
         if hol["type"] == "image":
             await context.bot.send_photo(
                 chat_id=update.effective_chat.id,
@@ -783,6 +782,7 @@ async def on_proof_btn(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await q.message.reply_text(
                 f"📎 Holiday proof ({day}) 🏖️\n📝 "
                 + raw.decode(errors="replace")[:1500])
+        await q.message.reply_text(MSG_PROOF_TEASE)
         await q.message.reply_text(MSG_PROOF_HAPPY, reply_markup=exit_kb)
     except Exception as e:
         log.warning("proof send fail %s: %s", day, e)
