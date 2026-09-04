@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Attendance App (Preview)</title>
-<link rel="stylesheet" href="styles.css?v=6">
+<link rel="stylesheet" href="styles.css?v=7">
 </head>
 <body>
 <div id="phone">
@@ -22,6 +22,20 @@
       <p class="hint">Koi ek chalega — UNIQUE ID ya Roll</p>
       <button id="btn-login" class="primary">Login ➜</button>
       <p id="login-err" class="err"></p>
+      <p class="link" id="link-register">Naya ho? Register karo 📝</p>
+
+      <div id="login-reg-block" class="hidden">
+        <p class="card-label">📝 NAYA REGISTRATION</p>
+        <input id="in-rnaam" placeholder="Apna naam">
+        <div class="row">
+          <input id="in-rbranch" placeholder="Branch (CS/IT/EC/ME)">
+          <input id="in-ryear" placeholder="Year (1st Year...)">
+        </div>
+        <input id="in-rroll" placeholder="Roll number">
+        <button id="btn-register" class="primary">Register ➜</button>
+        <p id="reg-err" class="err"></p>
+        <p id="reg-ok" class="msg"></p>
+      </div>
 
       <div id="login-pw-block" class="hidden">
         <p class="card-label">🔒 ADMIN PASSWORD</p>
@@ -152,6 +166,6 @@
     </div>
   </div>
 </div>
-<script src="app.js?v=4"></script>
+<script src="app.js?v=5"></script>
 </body>
 </html>

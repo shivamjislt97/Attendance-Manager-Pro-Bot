@@ -61,7 +61,8 @@ document.getElementById('btn-base').onclick = () => {
 };
 const LP = { uid: '', roll: '' };  // login pehchan (steps me reuse)
 function hideLoginBlocks() {
-  ['login-pw-block', 'login-set-block', 'login-forgot-block'].forEach(id =>
+  ['login-pw-block', 'login-set-block', 'login-forgot-block',
+   'login-reg-block'].forEach(id =>
     document.getElementById(id).classList.add('hidden'));
 }
 function enterApp(d) {
@@ -103,6 +104,27 @@ document.getElementById('btn-pw-login').onclick = async () => {
 document.getElementById('link-forgot').onclick = () => {
   hideLoginBlocks();
   document.getElementById('login-forgot-block').classList.remove('hidden');
+};
+document.getElementById('link-register').onclick = () => {
+  hideLoginBlocks();
+  document.getElementById('login-reg-block').classList.remove('hidden');
+};
+document.getElementById('btn-register').onclick = async () => {
+  const e = document.getElementById('reg-err');
+  const m = document.getElementById('reg-ok');
+  e.textContent = ''; m.textContent = '';
+  try {
+    const r = await api('/register', { method: 'POST', _noLogout: true,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ naam: document.getElementById('in-rnaam').value,
+        branch: document.getElementById('in-rbranch').value,
+        year: document.getElementById('in-ryear').value,
+        roll_no: document.getElementById('in-rroll').value }) });
+    m.textContent = '🎉 Registration COMPLETE!\n🆔 UNIQUE ID: ' + r.unique_id +
+      '\n(Isse likh lo — login me kaam aayegi)';
+    document.getElementById('in-uid').value = r.unique_id;
+    document.getElementById('in-roll').value = r.roll_no;
+  } catch (err) { e.textContent = '❌ ' + err.message; }
 };
 document.getElementById('btn-setpw').onclick = async () => {
   const e = document.getElementById('set-err'); e.textContent = '';

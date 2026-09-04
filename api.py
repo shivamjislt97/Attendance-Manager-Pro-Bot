@@ -371,6 +371,63 @@ def reset_password(body: ResetPwIn):
     return {"ok": True}
 
 
+class RegisterIn(BaseModel):
+    naam: str
+    branch: str
+    year: str
+    roll_no: str
+
+
+@app.post("/register")
+def register(body: RegisterIn):
+    """App se naya registration (bot wali validation). Chat_id = app:UUID."""
+    import uuid as _uuid
+    naam = (body.naam or "").strip()[:50]
+    branch = (body.branch or "").strip().upper()
+    year = (body.year or "").strip()
+    roll = (body.roll_no or "").strip()[:20]
+    if not naam:
+        raise HTTPException(status_code=400, detail="Naam likho")
+    if branch not in ("CS", "IT", "EC", "ME"):
+        raise HTTPException(status_code=400, detail="Branch CS/IT/EC/ME ho")
+    if year not in ("1st Year", "2nd Year", "3rd Year", "4th Year"):
+        raise HTTPException(status_code=400, detail="Year 1st-4th Year ho")
+    if not roll:
+        raise HTTPException(status_code=400, detail="Roll number likho")
+    chat_id = "app:" + _uuid.uuid4().hex[:12]
+    uid = "STU-" + _uuid.uuid4().hex[:8].upper()
+    db.save_student_field(chat_id, "naam", naam)
+    db.save_student_field(chat_id, "branch", branch)
+    db.save_student_field(chat_id, "year", year)
+    db.save_student_field(chat_id, "roll_no", roll)
+    with db._LOCK, db._conn() as c:
+        c.execute("UPDATE students SET unique_id = ? WHERE chat_id = ?",
+                  (uid, chat_id))
+    # Admin alert (best-effort, direct Telegram — fail-safe)
+    try:
+        import bot as bot_mod
+        from telegram import Bot
+        from types import SimpleNamespace
+        import asyncio as _aio
+
+        async def _alert():
+            await bot_mod.notify_admin_new_registration(
+                {"naam": naam, "branch": branch, "year": year,
+                 "roll_no": roll, "unique_id": uid, "chat_id": chat_id},
+                SimpleNamespace(bot=Bot(token=config.BOT_TOKEN)))
+        _aio.run(_alert())
+    except Exception as e:
+        import logging
+        logging.getLogger("attendance-api").warning("reg-alert fail: %s", e)
+    try:
+        import bot as bot_mod
+        bot_mod.queue_backup_push("registration-app")
+    except Exception:
+        pass
+    return {"ok": True, "unique_id": uid, "naam": naam, "branch": branch,
+            "year": year, "roll_no": roll}
+
+
 # ---------------- calendar + stats (bot logic reuse) ----------------
 def _month_cells(chat_id: str, year: int, month: int) -> dict:
     """Har date -> marker: present/chutti/absent/holiday/sunday/future/none."""
