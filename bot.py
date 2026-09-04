@@ -7,6 +7,7 @@ STUDENT ATTENDANCE MANAGER BOT (design doc: ../.lightning_studio/bot design.md)
 - 9-button menu sirf registered users ke liye
 """
 import asyncio
+import html as _html
 import io
 import logging
 import random
@@ -307,18 +308,24 @@ def students_count_report() -> str:
     return "\n".join(lines)
 
 
+def code(s) -> str:
+    """Tap-to-copy block (Telegram mobile par tap karne se copy hota hai)."""
+    return "<code>" + _html.escape(str(s if s is not None else "-")) + "</code>"
+
+
 async def notify_admin_new_registration(student: dict, context) -> None:
     """Naye student registration par admin ko instant full-detail alert."""
     total = len(db.get_all_students())
     await context.bot.send_message(
         chat_id=int(config.ADMIN_CHAT_ID),
+        parse_mode="HTML",
         text=("🔔 Naya registration! ✅\n"
-              f"👤 Naam: {student.get('naam')}\n"
-              f"🏷️ Branch: {student.get('branch')} | "
-              f"🎓 Year: {student.get('year')}\n"
-              f"🔢 Roll: {student.get('roll_no')} | "
-              f"🆔 {student.get('unique_id')}\n"
-              f"💬 Chat ID: {student.get('chat_id')} | "
+              f"👤 Naam: {_html.escape(str(student.get('naam')))}\n"
+              f"🏷️ Branch: {_html.escape(str(student.get('branch')))} | "
+              f"🎓 Year: {_html.escape(str(student.get('year')))}\n"
+              f"🔢 Roll: {code(student.get('roll_no'))} | "
+              f"🆔 {code(student.get('unique_id'))}\n"
+              f"💬 Chat ID: {code(student.get('chat_id'))} | "
               f"📅 {today_str()}\n"
               f"👥 Total students: {total}"))
 
@@ -669,17 +676,25 @@ async def reg_change(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if ctx.get("is_admin"):
         await q.edit_message_text(
             f"✅ Verify: registration save ho gaya!\n"
-            f"👤 {ctx.get('naam')} | 🏷️ {ctx.get('branch')} | "
-            f"🎓 {ctx.get('year')} | 🔢 {ctx.get('roll_no')}\n"
+            f"👤 {_html.escape(str(ctx.get('naam')))} | "
+            f"🏷️ {_html.escape(str(ctx.get('branch')))} | "
+            f"🎓 {_html.escape(str(ctx.get('year')))} | "
+            f"🔢 {code(ctx.get('roll_no'))}\n"
             f"🎉 Malik APP, aapka registration ho gaya! 🙏\n"
-            f"🆔 UNIQUE ID: {uid}\n(Issse sambhal kar rakhiye!)")
+            f"🆔 UNIQUE ID: {code(uid)}\n(Issse sambhal kar rakhiye! Tap karke copy karo 👆)",
+            parse_mode="HTML")
         await update.effective_message.reply_text(
             "🙏 Aaj ka kya status hai?", reply_markup=admin_daily_kb())
     else:
         saved = (f"✅ Verify: registration save ho gaya!\n"
-                 f"👤 {ctx.get('naam')} | 🏷️ {ctx.get('branch')} | "
-                 f"🎓 {ctx.get('year')} | 🔢 {ctx.get('roll_no')}\n\n")
-        await q.edit_message_text(saved + MSG_UNIQUE_ID.format(uid=uid))
+                 f"👤 {_html.escape(str(ctx.get('naam')))} | "
+                 f"🏷️ {_html.escape(str(ctx.get('branch')))} | "
+                 f"🎓 {_html.escape(str(ctx.get('year')))} | "
+                 f"🔢 {code(ctx.get('roll_no'))}\n\n")
+        await q.edit_message_text(
+            saved + MSG_UNIQUE_ID.format(uid=code(uid))
+            + "\n(Tap karke copy karo 👆)",
+            parse_mode="HTML")
         await update.effective_message.reply_text(
             "🙏 Aaj college gaye the ya chhutti? 👇 Button dabao "
             "(menu bhi niche hai):",
@@ -1199,9 +1214,11 @@ async def on_know_stuid(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     await q.edit_message_text(
         f"✅ Verify: tumhari STU ID mil gayi!\n\n"
-        f"🆔 STU ID: {stu['unique_id'] or '-'}\n"
-        f"👤 {stu['naam'] or '-'} | 🔢 {stu['roll_no'] or '-'}\n\n"
-        f"⚠️ Isse sambhal kar rakho!")
+        f"🆔 STU ID: {code(stu['unique_id'])}\n"
+        f"👤 {_html.escape(str(stu['naam'] or '-'))} | "
+        f"🔢 {code(stu['roll_no'])}\n\n"
+        f"⚠️ Isse sambhal kar rakho! (Tap karke copy karo 👆)",
+        parse_mode="HTML")
 
 
 # ---------------- ADMIN COUNT ----------------
