@@ -15,7 +15,7 @@ class AttApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Attendance App',
+      title: 'Attendance Manager Pro',
       debugShowCheckedModeBanner: false,
       themeMode: ThemeMode.dark, // force dark — system theme follow nahi
       darkTheme: ThemeData(

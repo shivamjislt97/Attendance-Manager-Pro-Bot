@@ -101,17 +101,35 @@ while true; do
             _WJS="/tmp/worker_target.js"
             printf 'const TARGET = "%s";\nexport default {\n  async fetch(req) {\n    const url = new URL(req.url);\n    if (url.pathname === "/health" || url.pathname === "/health/") {\n      return new Response(%s, {\n        headers: { "content-type": "application/json" }\n      });\n    }\n    return Response.redirect(TARGET + url.pathname + url.search, 302);\n  }\n}\n' \
                 "$URL" "'{\"status\":\"ok\"}'" > "$_WJS"
-            if curl -s -m 60 -X PUT \
-                -H "Authorization: Bearer $CF_TOKEN" \
-                -F 'metadata={"main_module":"worker.js"};type=application/json' \
-                -F "worker.js=@$_WJS;type=application/javascript" \
-                "https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT/workers/scripts/$CF_WORKER" \
-                | grep -q '"success":true'; then
-                echo "[$(date '+%F %T')] worker TARGET updated: $URL"
+            # Use wrangler for reliable deploy (handles module upload correctly)
+            if command -v npx >/dev/null 2>&1; then
+                _TMPD=$(mktemp -d)
+                cp "$_WJS" "$_TMPD/worker.js"
+                cat > "$_TMPD/wrangler.toml" <<EOF2
+name = "$CF_WORKER"
+main = "worker.js"
+compatibility_date = "2024-01-01"
+EOF2
+                if CLOUDFLARE_API_TOKEN="$CF_TOKEN" CLOUDFLARE_ACCOUNT_ID="$CF_ACCOUNT" \
+                    npx --yes wrangler deploy --cwd "$_TMPD" >/tmp/wrangler_worker.log 2>&1; then
+                    echo "[$(date '+%F %T')] worker TARGET updated: $URL"
+                else
+                    echo "[$(date '+%F %T')] worker update fail — tunnel waise hi live. (see /tmp/wrangler_worker.log)" >&2
+                fi
+                rm -rf "$_TMPD" "$_WJS"
             else
-                echo "[$(date '+%F %T')] worker update skip/fail — tunnel waise hi live. (warn only)" >&2
+                if curl -s -m 60 -X PUT \
+                    -H "Authorization: Bearer $CF_TOKEN" \
+                    -F 'metadata={"main_module":"worker.js"};type=application/json' \
+                    -F "worker.js=@$_WJS;type=application/javascript+module" \
+                    "https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT/workers/scripts/$CF_WORKER" \
+                    | grep -q '"success":true'; then
+                    echo "[$(date '+%F %T')] worker TARGET updated: $URL"
+                else
+                    echo "[$(date '+%F %T')] worker update skip/fail — tunnel waise hi live. (warn only)" >&2
+                fi
+                rm -f "$_WJS"
             fi
-            rm -f "$_WJS"
         fi
     else
         echo "[$(date '+%F %T')] tunnel URL nahi mila — 10s me retry..." >&2

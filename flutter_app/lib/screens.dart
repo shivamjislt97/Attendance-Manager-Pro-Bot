@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'api.dart';
 import 'theme.dart';
 
@@ -182,6 +183,26 @@ class _HomeTabState extends State<HomeTab> {
               padding: const EdgeInsets.only(top: 8),
               child: Text(message,
                   style: const TextStyle(color: green))),
+        const SizedBox(height: 14),
+        InkWell(
+          onTap: () async {
+            const url = 'https://t.me/attendance_manager_pro_bot';
+            try { await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication); } catch (_) {}
+          },
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 14),
+            decoration: BoxDecoration(
+                color: const Color(0xFF229ED9),
+                borderRadius: BorderRadius.circular(999)),
+            child: const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+              Icon(Icons.send, color: Colors.white, size: 18),
+              SizedBox(width: 8),
+              Text('@attendance_manager_pro_bot on Telegram',
+                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            ]),
+          ),
+        ),
       ]),
     );
   }

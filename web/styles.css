@@ -66,6 +66,8 @@ button:disabled{opacity:.5}
   margin-top:8px;cursor:pointer}
 #login-pw-block,#login-set-block,#login-forgot-block{margin-top:12px;
   border-top:1px dashed #d4dded;padding-top:12px}
+.tg-link{display:inline-flex;align-items:center;gap:6px;margin:6px auto 10px;padding:7px 12px;border-radius:999px;background:#229ED9;color:#fff;font-weight:700;font-size:13px;text-decoration:none}
+.tg-link svg{flex:0 0 18px}
 .settings{margin-top:18px;font-size:13px;color:var(--mut)}
 /* calendar */
 .cal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px}
