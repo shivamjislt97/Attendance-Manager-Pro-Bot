@@ -135,7 +135,16 @@ function logout() {
   document.getElementById('nav').classList.add('hidden');
   show('scr-login');
 }
-document.getElementById('btn-logout').onclick = logout;
+document.getElementById('btn-logout').onclick = () => {
+  document.getElementById('logout-confirm').classList.remove('hidden');
+};
+document.getElementById('btn-lo-haa').onclick = () => {
+  document.getElementById('logout-confirm').classList.add('hidden');
+  logout();
+};
+document.getElementById('btn-lo-nhi').onclick = () => {
+  document.getElementById('logout-confirm').classList.add('hidden');
+};
 if (S.token && S.profile) {
   document.getElementById('nav').classList.remove('hidden');
   document.getElementById('nav-admin').style.display = S.profile.is_admin ? '' : 'none';

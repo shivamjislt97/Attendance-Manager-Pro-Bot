@@ -52,6 +52,8 @@ BTN_COUNT = "👥 STUDENTS COUNT DEKHO"
 CB_COUNT = "count:students"
 BTN_MENU = "📋 MENU KHOLO"
 CB_MENU_OPEN = "menu:open"
+BTN_KNOW = "🆔 KNOW STU ID"
+CB_KNOW = "know:stuid"
 BTN_MAZE = "🏖️ MAZE KARO AJJ"
 CB_FUN = "fun:mozkaro"
 BTN_EXIT = "❌ EXIT"
@@ -355,11 +357,13 @@ def menu_open_kb() -> InlineKeyboardMarkup:
         return InlineKeyboardMarkup([
             [InlineKeyboardButton(BTN_MAZE, callback_data=CB_FUN)],
             [InlineKeyboardButton(BTN_MENU, callback_data=CB_MENU_OPEN)],
+            [InlineKeyboardButton(BTN_KNOW, callback_data=CB_KNOW)],
         ])
     return InlineKeyboardMarkup([
         [InlineKeyboardButton(BTN_PRESENT, callback_data="att:PRESENT"),
          InlineKeyboardButton(BTN_CHHUTTI, callback_data="att:CHHUTTI")],
         [InlineKeyboardButton(BTN_MENU, callback_data=CB_MENU_OPEN)],
+        [InlineKeyboardButton(BTN_KNOW, callback_data=CB_KNOW)],
     ])
 
 
@@ -404,6 +408,7 @@ def admin_daily_kb() -> InlineKeyboardMarkup:
         [InlineKeyboardButton(BTN_NOTICE, callback_data="holiday:ask")],
         [InlineKeyboardButton(BTN_LOOKUP, callback_data="lookup:ask")],
         [InlineKeyboardButton(BTN_COUNT, callback_data=CB_COUNT)],
+        [InlineKeyboardButton(BTN_KNOW, callback_data=CB_KNOW)],
         [InlineKeyboardButton(MENU_BUTTONS[0], callback_data="menu:0")],
         [InlineKeyboardButton(BTN_MENU, callback_data=CB_MENU_OPEN)],
     ])
@@ -1180,6 +1185,25 @@ async def on_lookup_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return ConversationHandler.END
 
 
+# ---------------- KNOW STU ID (home button, menu me nahi) ----------------
+async def on_know_stuid(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """[🆔 KNOW STU ID] dabane par user ko uski UNIQUE ID batao."""
+    q = update.callback_query
+    await q.answer()
+    chat_id = update.effective_chat.id
+    stu = db.get_student(chat_id)
+    if stu is None:
+        await q.edit_message_text(
+            "Pehle registration karwao! 'hi' bhejo 😊\n"
+            "STU ID registration ke baad milti hai. 🆔")
+        return
+    await q.edit_message_text(
+        f"✅ Verify: tumhari STU ID mil gayi!\n\n"
+        f"🆔 STU ID: {stu['unique_id'] or '-'}\n"
+        f"👤 {stu['naam'] or '-'} | 🔢 {stu['roll_no'] or '-'}\n\n"
+        f"⚠️ Isse sambhal kar rakho!")
+
+
 # ---------------- ADMIN COUNT ----------------
 async def on_students_count(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """[👥 STUDENTS COUNT DEKHO] -> total + branch/year/matrix (sirf admin)."""
@@ -1396,6 +1420,7 @@ def build_app() -> Application:
     app.add_handler(CallbackQueryHandler(on_holiday_ask, pattern="^holiday:ask$"))
     app.add_handler(CallbackQueryHandler(on_lookup_ask, pattern="^lookup:ask$"))
     app.add_handler(CallbackQueryHandler(on_students_count, pattern="^count:students$"))
+    app.add_handler(CallbackQueryHandler(on_know_stuid, pattern="^know:stuid$"))
     # Date-step AAJ button conversation ke bahar bhi fire hona chahiye
     app.add_handler(CallbackQueryHandler(on_holiday_date_btn, pattern="^hol:today$"))
     # Holiday proof button (custom-date record) — kisi bhi user ke liye
