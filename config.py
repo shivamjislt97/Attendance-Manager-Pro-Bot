@@ -13,8 +13,10 @@ if not BOT_TOKEN:
         "Template: config.example.py dekho."
     )
 
-# Admin chat id (Malik APP)
+# Admin chat id (Malik APP) — legacy single-admin compat
 ADMIN_CHAT_ID = 6267031612
+# Sabse Bade Malik — master admin, only 1, never downgradable, cannot be created
+MASTER_ADMIN_ID = 6267031612
 
 # Timezone: bot ka saara schedule IST (Asia/Kolkata) mein
 TZ = "Asia/Kolkata"

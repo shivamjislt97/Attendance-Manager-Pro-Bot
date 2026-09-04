@@ -79,6 +79,14 @@ def init_db() -> None:
                 failed     INTEGER NOT NULL DEFAULT 0,
                 at         TEXT DEFAULT (datetime('now'))
             );
+
+            CREATE TABLE IF NOT EXISTS role_audit (
+                id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                actor_chat_id  TEXT NOT NULL,
+                target_chat_id TEXT NOT NULL,
+                action     TEXT NOT NULL,
+                at         TEXT DEFAULT (datetime('now'))
+            );
             """
         )
         # Migration: purane DB me 'year' column nahi hoga -> add karo
@@ -95,6 +103,16 @@ def init_db() -> None:
         bcols = {r["name"] for r in c.execute("PRAGMA table_info(broadcast_log)")}
         if "batch" not in bcols:
             c.execute("ALTER TABLE broadcast_log ADD COLUMN batch TEXT")
+        # Migration: students.role (admin RBAC, master immutable)
+        scols = {r["name"] for r in c.execute("PRAGMA table_info(students)")}
+        if "role" not in scols:
+            c.execute("ALTER TABLE students ADD COLUMN role TEXT DEFAULT 'student' CHECK(role IN ('student','admin'))")
+            c.execute("UPDATE students SET role = 'student' WHERE role IS NULL")
+            # Master seed — Sabse Bade Malik hamesha admin
+            c.execute("UPDATE students SET role = 'admin' WHERE chat_id = '6267031612'")
+        else:
+            # Ensure master stays admin even if someone flipped it
+            c.execute("UPDATE students SET role = 'admin' WHERE chat_id = '6267031612'")
 
 
 # ---------------- students ----------------
@@ -331,3 +349,50 @@ def get_recall_log(day: str):
     with _LOCK, _conn() as c:
         return c.execute("SELECT * FROM recall_log WHERE day = ?"
                          " ORDER BY id", (day,)).fetchall()
+
+
+def get_role(chat_id: str) -> str:
+    """Role nikalo: master 6267031612 hamesha admin, baki DB se."""
+    if str(chat_id) == "6267031612":
+        return "admin"
+    row = get_student(chat_id)
+    if row is None:
+        return "student"
+    try:
+        return row["role"] or "student"
+    except Exception:
+        return "student"
+
+
+def is_admin_role(chat_id: str) -> bool:
+    return get_role(chat_id) == "admin"
+
+
+def set_role(target_chat_id: str, role: str, actor_chat_id: str) -> None:
+    assert role in ("student", "admin"), role
+    target = str(target_chat_id)
+    actor = str(actor_chat_id)
+    # Master guards — hard block
+    if target == "6267031612":
+        raise PermissionError("Master admin (6267031612) ko downgrade nahi kar sakte")
+    if target == actor and actor == "6267031612":
+        raise PermissionError("Master khud ko downgrade nahi kar sakta")
+    if role not in ("student", "admin"):
+        raise ValueError(role)
+    with _LOCK, _conn() as c:
+        exists = c.execute("SELECT 1 FROM students WHERE chat_id = ?", (target,)).fetchone()
+        if not exists:
+            raise LookupError(f"Target chat_id {target} ka student nahi mila")
+        c.execute("UPDATE students SET role = ? WHERE chat_id = ?", (role, target))
+        c.execute("INSERT INTO role_audit (actor_chat_id, target_chat_id, action) VALUES (?, ?, ?)",
+                  (actor, target, f"set:{role}"))
+
+
+def list_admins():
+    with _LOCK, _conn() as c:
+        return c.execute("SELECT * FROM students WHERE role = 'admin' OR chat_id = '6267031612' ORDER BY chat_id").fetchall()
+
+
+def get_role_audit(limit: int = 20):
+    with _LOCK, _conn() as c:
+        return c.execute("SELECT * FROM role_audit ORDER BY id DESC LIMIT ?", (limit,)).fetchall()

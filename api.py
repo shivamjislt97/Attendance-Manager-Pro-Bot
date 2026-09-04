@@ -177,8 +177,14 @@ def _get_chat(x_token: Optional[str] = Header(default=None)) -> str:
 
 
 def _require_admin(chat_id: str = Depends(_get_chat)) -> str:
-    if chat_id != str(config.ADMIN_CHAT_ID):
+    if not db.is_admin_role(chat_id):
         raise HTTPException(status_code=403, detail="Admin only")
+    return chat_id
+
+
+def _require_master(chat_id: str = Depends(_get_chat)) -> str:
+    if str(chat_id) != str(config.MASTER_ADMIN_ID):
+        raise HTTPException(status_code=403, detail="Only Master admin")
     return chat_id
 
 
@@ -216,7 +222,8 @@ def login(body: LoginIn):
             stu = rows[0]
     finally:
         c.close()
-    is_admin = stu["chat_id"] == str(config.ADMIN_CHAT_ID)
+    is_admin = db.is_admin_role(stu["chat_id"])
+    is_master = str(stu["chat_id"]) == str(config.MASTER_ADMIN_ID)
     if is_admin:
         # Admin login me password MANDATORY hai (token isse pehle banta hi nahi)
         auth = _admin_row()
@@ -236,7 +243,7 @@ def login(body: LoginIn):
     finally:
         c.close()
     return {"token": token, "naam": stu["naam"], "branch": stu["branch"],
-            "year": stu["year"], "is_admin": is_admin}
+            "year": stu["year"], "is_admin": is_admin, "is_master": is_master}
 
 
 class SetPwIn(BaseModel):
@@ -708,6 +715,10 @@ async def admin_holiday(date: str = Form(...), proof_text: str = Form(""),
             "updated": n_upd, "broadcast_ok": ok, "broadcast_fail": fail}
 
 
+class RoleIn(BaseModel):
+    target: str  # STU ID or Roll
+    role: str  # admin|student
+
 class RecallIn(BaseModel):
     date: str
     batch: Optional[str] = None
@@ -754,6 +765,42 @@ async def admin_recall(body: RecallIn,
 @app.get("/admin/broadcasts")
 def admin_broadcasts(_admin: str = Depends(_require_admin)):
     """Recent general batches (recall list ke liye)."""
+    rows = db.list_broadcast_batches(10)
+    return {"batches": [
+        {"batch": r["batch"], "day": r["day"], "count": r["n"],
+         "at": r["at"]} for r in rows]}
+
+
+@app.post("/admin/role")
+def admin_role(body: RoleIn, actor: str = Depends(_require_admin)):
+    """Kisi bhi ID ko STU ID/Roll se admin/student banao — admin transitive, master lock."""
+    target_raw = (body.target or "").strip()
+    want = (body.role or "").strip().lower()
+    if want not in ("admin", "student"):
+        raise HTTPException(status_code=400, detail="role admin|student ho")
+    stu = (db.get_student(target_raw) or db.get_student_by_roll(target_raw)
+           or db.get_student_by_unique_id(target_raw))
+    if stu is None:
+        raise HTTPException(status_code=404, detail="Target student nahi mila (STU/Roll galat)")
+    try:
+        db.set_role(str(stu["chat_id"]), want, actor)
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return {"ok": True, "target": stu["unique_id"], "role": want}
+
+
+@app.get("/admin/roles")
+def admin_roles(_admin: str = Depends(_require_admin)):
+    rows = db.list_admins()
+    return {"admins": [{"chat_id": r["chat_id"], "naam": r["naam"], "roll_no": r["roll_no"], "unique_id": r["unique_id"], "is_master": str(r["chat_id"]) == str(config.MASTER_ADMIN_ID)} for r in rows],
+            "audit": [dict(r) for r in db.get_role_audit(20)]}
+
+
+@app.get("/admin/broadcasts-alias")
+def admin_broadcasts_alias(_admin: str = Depends(_require_admin)):
+    """Alias for broadcasts list."""
     rows = db.list_broadcast_batches(10)
     return {"batches": [
         {"batch": r["batch"], "day": r["day"], "count": r["n"],

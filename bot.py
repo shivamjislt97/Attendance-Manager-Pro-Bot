@@ -157,10 +157,26 @@ BTN_TODAY = "📅 AAJ"
 CB_HOL_TODAY = "hol:today"
 
 # ---------------- HELPERS ----------------
+def is_master(chat_id) -> bool:
+    return str(chat_id) == str(config.MASTER_ADMIN_ID)
+
+def honorific(chat_id) -> str:
+    if is_master(chat_id):
+        return "Sabse Bade Malik 🙏"
+    try:
+        if db.get_role(chat_id) == "admin":
+            return "Malik APP 🙏"
+    except Exception:
+        pass
+    return "Dost"
+
 def is_admin(update: Update) -> bool:
-    return update.effective_chat is not None and (
-        update.effective_chat.id == config.ADMIN_CHAT_ID
-    )
+    if update.effective_chat is None:
+        return False
+    try:
+        return db.is_admin_role(update.effective_chat.id)
+    except Exception:
+        return update.effective_chat.id == config.ADMIN_CHAT_ID
 
 
 def today_str() -> str:
@@ -466,6 +482,8 @@ def clear_wait_state(chat_id) -> None:
     LOOKUP_WAIT.discard(chat_id)
     HOLIDAY_DATE.pop(chat_id, None)
     HOLIDAY_DATE_WAIT.discard(chat_id)
+    ROLE_WAIT.discard(chat_id)
+    ROLE_ACTION_WAIT.pop(chat_id, None)
 
 
 def menu_rows() -> list:
@@ -542,6 +560,7 @@ def admin_daily_kb() -> InlineKeyboardMarkup:
         [InlineKeyboardButton(BTN_KNOW, callback_data=CB_KNOW)],
         [InlineKeyboardButton(MENU_BUTTONS[0], callback_data="menu:0")],
         [InlineKeyboardButton(BTN_MENU, callback_data=CB_MENU_OPEN)],
+        [InlineKeyboardButton("🛡️ Role Badlo", callback_data="role:ask")],
     ])
     return InlineKeyboardMarkup(rows)
 
@@ -601,7 +620,7 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if is_admin(update):
         if db.get_student(chat_id):
             await update.effective_message.reply_text(
-                f"🙏 Namaste Malik APP! (aaj: {today_str()})",
+                f"🙏 Namaste {honorific(chat_id)}! (aaj: {today_str()})",
                 reply_markup=admin_daily_kb(),
             )
         else:
@@ -874,7 +893,7 @@ def home_after_exit(update: Update):
     naye user->welcome + registration buttons."""
     chat_id = update.effective_chat.id
     if is_admin(update) and db.get_student(chat_id):
-        return ("✅ Bahar aa gaye. 🙏 Malik APP, home par wapas 👇",
+        return (f"✅ Bahar aa gaye. 🙏 {honorific(chat_id)}, home par wapas 👇",
                 admin_daily_kb())
     if db.get_student(chat_id):
         if db.is_holiday(today_str()):
@@ -1027,7 +1046,7 @@ async def on_custom_date(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # photo/text conversation me nahi jaati — yahan pakdo, warna silently drop
     # ho jaati thi (photo ke liye to koi global handler tha hi nahi).
     if (chat_id in LOOKUP_WAIT or chat_id in ADMIN_NOTICE_WAIT
-            or chat_id in HOLIDAY_DATE_WAIT):
+            or chat_id in HOLIDAY_DATE_WAIT or chat_id in ROLE_WAIT):
         return await holiday_or_lookup_router(update, context)
 
     # ---- CASE 1: custom date pending hai -> usko process karo ----
@@ -1067,7 +1086,7 @@ async def on_custom_date(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if db.get_student(chat_id):
         if is_admin(update):
             kb = admin_daily_kb()
-            txt = "🙏 Malik APP, aaj ka kya status hai? 👇 (MENU niche hai)"
+            txt = f"🙏 {honorific(update.effective_chat.id)}, aaj ka kya status hai? 👇 (MENU niche hai)"
         elif db.is_holiday(today_str()):
             kb = menu_open_kb()  # holiday: sirf MAZE KARO + MENU KHOLO
             txt = ("🏖️ AAJ TOH CHHUTTI HAI MOZ KARO 🎉 "
@@ -1406,6 +1425,101 @@ async def on_lookup_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return ConversationHandler.END
 
 
+# ---------------- ADMIN ROLE (upgrade/downgrade via STU ID / Roll) ----------------
+ROLE_WAIT = set()  # chat_id waiting for target STU/Roll
+ROLE_ACTION_WAIT = {}  # chat_id -> target_chat_id pending confirm
+
+async def on_role_ask(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    await q.answer()
+    if not is_admin(update):
+        await q.edit_message_text("⛔ Ye sirf admin ke liye hai. 😊")
+        return
+    ROLE_WAIT.add(update.effective_chat.id)
+    await q.edit_message_text(
+        f"🛡️ Role Badlo — {honorific(update.effective_chat.id)} 🙏\nKisi bhi ID ko uske STU ID ya Roll se upgrade/downgrade kar sakte ho.\n🔍 Target ka STU ID ya Roll bhejo:" + MSG_EXIT_HINT,
+        reply_markup=InlineKeyboardMarkup([exit_kb_row()]),
+    )
+    return ASK_HOLIDAY_NOTICE
+
+async def on_role_target_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id = update.effective_chat.id
+    if chat_id not in ROLE_WAIT:
+        return ConversationHandler.END
+    if (update.message.text or "").strip().lower() in ("exit", "/cancel"):
+        ROLE_WAIT.discard(chat_id)
+        return await on_exit_text(update, context)
+    key = update.message.text.strip()
+    stu = (db.get_student(key) or db.get_student_by_roll(key)
+           or db.get_student_by_unique_id(key))
+    if stu is None:
+        await update.message.reply_text(
+            f"😔 '{key}' se koi student nahi mila. Dobara bhejo ya EXIT:",
+            reply_markup=InlineKeyboardMarkup([exit_kb_row()]))
+        return ASK_HOLIDAY_NOTICE
+    # Master-target hard block at confirm stage too, but early hint
+    target_cid = str(stu["chat_id"])
+    if is_master(target_cid):
+        await update.message.reply_text(
+            "⛔ Sabse Bade Malik (6267031612) ko downgrade nahi kar sakte 🙏\nKoi aur ID bhejo ya EXIT:",
+            reply_markup=InlineKeyboardMarkup([exit_kb_row()]))
+        return ASK_HOLIDAY_NOTICE
+    ROLE_WAIT.discard(chat_id)
+    ROLE_ACTION_WAIT[chat_id] = target_cid
+    cur = db.get_role(target_cid)
+    await update.message.reply_text(
+        f"👤 Target: {_html.escape(stu['naam'] or '-')} | 🔢 {code(stu['roll_no'])} | 🆔 {code(stu['unique_id'])} | role={cur}\nKya karna hai?",
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup([
+            [InlineKeyboardButton("⬆️ Admin banao", callback_data="role:make_admin"),
+             InlineKeyboardButton("⬇️ User banao", callback_data="role:make_user")],
+            exit_kb_row(),
+        ]))
+    return ASK_HOLIDAY_NOTICE
+
+async def on_role_action(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    await q.answer()
+    actor = str(update.effective_chat.id)
+    if not is_admin(update):
+        await q.edit_message_text("⛔ Ye sirf admin ke liye hai. 😊")
+        return ConversationHandler.END
+    target = ROLE_ACTION_WAIT.get(update.effective_chat.id)
+    if not target:
+        await q.edit_message_text("❌ Pehle target STU/Roll bhejo, fir action chuno.")
+        return ConversationHandler.END
+    # Master guards
+    if is_master(target):
+        ROLE_ACTION_WAIT.pop(update.effective_chat.id, None)
+        await q.edit_message_text("⛔ Sabse Bade Malik ko downgrade nahi kar sakte — sirf 1 master rahega 🙏")
+        return ConversationHandler.END
+    if is_master(actor) and target == actor:
+        ROLE_ACTION_WAIT.pop(update.effective_chat.id, None)
+        await q.edit_message_text("⛔ Master khud ko downgrade nahi kar sakta 🙏")
+        return ConversationHandler.END
+    # Normal admin self-downgrade allowed (per user confirm haa)
+    want = "admin" if q.data == "role:make_admin" else "student"
+    try:
+        db.set_role(target, want, actor)
+        ROLE_ACTION_WAIT.pop(update.effective_chat.id, None)
+        stu = db.get_student(target)
+        await q.edit_message_text(
+            f"✅ Verify: {honorific(actor)} ne {_html.escape(stu['naam'] or target)} ko {want} bana diya 🙏\n🆔 {code(stu['unique_id'])}",
+            parse_mode="HTML", reply_markup=admin_daily_kb())
+        log.info("role %s %s -> %s by %s", target, want, actor, honorific(actor))
+    except PermissionError as e:
+        await q.edit_message_text(f"⛔ {e}")
+    except Exception as e:
+        log.warning("role fail %s: %s", target, e)
+        await q.edit_message_text(f"❌ Fail: {e}")
+    return ConversationHandler.END
+
+def _role_router(update, context):
+    # Helper for holiday_or_lookup_router dispatch
+    if update.effective_chat.id in ROLE_WAIT:
+        # will be TextHandler dispatched; keep here for completeness
+        pass
+    return None
 # ---------------- KNOW STU ID (home button, menu me nahi) ----------------
 async def on_know_stuid(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """[🆔 KNOW STU ID] dabane par user ko uski UNIQUE ID batao."""
@@ -1678,6 +1792,8 @@ def build_app() -> Application:
     app.add_handler(CallbackQueryHandler(on_students_count, pattern="^count:students$"))
     app.add_handler(CallbackQueryHandler(on_know_stuid, pattern="^know:stuid$"))
     app.add_handler(CallbackQueryHandler(on_recall_btn, pattern="^recall:"))
+    app.add_handler(CallbackQueryHandler(on_role_ask, pattern="^role:ask$"))
+    app.add_handler(CallbackQueryHandler(on_role_action, pattern="^role:make_"))
     # Date-step AAJ button conversation ke bahar bhi fire hona chahiye
     app.add_handler(CallbackQueryHandler(on_holiday_date_btn, pattern="^hol:today$"))
     # Holiday proof button (custom-date record) — kisi bhi user ke liye
@@ -1726,13 +1842,15 @@ def build_app() -> Application:
 
 
 async def holiday_or_lookup_router(update, context):
-    """Holiday 2-step / lookup routing.
+    """Holiday 2-step / lookup / role routing.
 
-    Order: LOOKUP -> date-step (Step-1) -> proof-step (Step-2).
+    Order: LOOKUP -> role -> date-step (Step-1) -> proof-step (Step-2).
     """
     chat_id = update.effective_chat.id
     if chat_id in LOOKUP_WAIT:
         return await on_lookup_input(update, context)
+    if chat_id in ROLE_WAIT:
+        return await on_role_target_input(update, context)
     if chat_id in HOLIDAY_DATE_WAIT:
         # Step-1 me photo aayi to error — pehle date chahiye
         if update.message and update.message.photo:
@@ -1752,7 +1870,7 @@ async def on_photo_global(update: Update, context: ContextTypes.DEFAULT_TYPE):
     hone par admin ki holiday photo silently gir jaati thi (save hi nahi hoti).
     """
     chat_id = update.effective_chat.id
-    if chat_id in LOOKUP_WAIT or chat_id in ADMIN_NOTICE_WAIT or chat_id in HOLIDAY_DATE_WAIT:
+    if chat_id in LOOKUP_WAIT or chat_id in ADMIN_NOTICE_WAIT or chat_id in HOLIDAY_DATE_WAIT or chat_id in ROLE_WAIT:
         return await holiday_or_lookup_router(update, context)
     # Normal photo (bina wait-state): ignore, taaki unrelated photo par
     # bot bekar me na bole. Sirf log karo.
