@@ -51,6 +51,9 @@ class _HomeShellState extends State<HomeShell> {
         backgroundColor: const Color(0xFF0A1830),
         selectedItemColor: green,
         unselectedItemColor: mut,
+        selectedFontSize: 10,
+        unselectedFontSize: 10,
+        selectedLabelStyle: const TextStyle(fontWeight: FontWeight.bold),
         items: items,
       ),
     );
@@ -349,33 +352,38 @@ class _CalTabState extends State<CalTab> {
           GridView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 7, mainAxisSpacing: 6, crossAxisSpacing: 6),
-            itemCount: first + n,
-            itemBuilder: (_, i) {
-              if (i < first) return const SizedBox();
-              final d = i - first + 1;
-              final ds =
-                  '${d.toString().padLeft(2, '0')}/${m.toString().padLeft(2, '0')}/$y';
-              final marker =
-                  (days[ds] as Map?)?['marker']?.toString() ?? 'none';
-              return GestureDetector(
-                onTap: () => _showDay(ds),
-                child: Container(
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: _cellColor(marker),
-                    borderRadius: BorderRadius.circular(10),
-                    border: sel == ds
-                        ? Border.all(color: Colors.white, width: 2)
-                        : null,
-                  ),
-                  child: Text('$d',
-                      style: const TextStyle(
-                          color: Colors.white, fontWeight: FontWeight.bold)),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 7,
+              mainAxisSpacing: 6,
+              crossAxisSpacing: 6,
+              childAspectRatio: 0.85),
+          itemCount: first + n,
+          itemBuilder: (_, i) {
+            if (i < first) return const SizedBox();
+            final d = i - first + 1;
+            final ds =
+                '${d.toString().padLeft(2, '0')}/${m.toString().padLeft(2, '0')}/$y';
+            final marker =
+                (days[ds] as Map?)?['marker']?.toString() ?? 'none';
+            return GestureDetector(
+              onTap: () => _showDay(ds),
+              child: Container(
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: _cellColor(marker),
+                  borderRadius: BorderRadius.circular(10),
+                  border: sel == ds
+                      ? Border.all(color: Colors.white, width: 2)
+                      : null,
                 ),
-              );
-            },
+                child: Text('$d',
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13)),
+              ),
+            );
+          },
           ),
         if (detail.isNotEmpty)
           Container(
@@ -539,19 +547,22 @@ class _ChatTabState extends State<ChatTab> {
             style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
         Wrap(
           spacing: 6,
+          runSpacing: 6,
           children: qs
               .map((q) => ElevatedButton(
                   onPressed: () => send(q),
                   style: ElevatedButton.styleFrom(
                       backgroundColor: surface,
-                      minimumSize: const Size(64, 36)),
-                  child: Text(q)))
+                      minimumSize: const Size(64, 36),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 8)),
+                  child: Text(q, style: const TextStyle(fontSize: 12))))
               .toList(),
         ),
+        const SizedBox(height: 8),
         Expanded(
           child: Container(
             width: double.infinity,
-            margin: const EdgeInsets.symmetric(vertical: 8),
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
                 color: surface, borderRadius: BorderRadius.circular(12)),
@@ -560,6 +571,7 @@ class _ChatTabState extends State<ChatTab> {
                 child: Text(msgs.join('\n\n'))),
           ),
         ),
+        const SizedBox(height: 8),
         Row(children: [
           Expanded(
               child: TextField(
@@ -574,6 +586,9 @@ class _ChatTabState extends State<ChatTab> {
                   send(t);
                 }
               },
+              style: ElevatedButton.styleFrom(
+                  minimumSize: const Size(52, 52),
+                  padding: EdgeInsets.zero),
               child: const Text('➤')),
         ]),
       ]),
