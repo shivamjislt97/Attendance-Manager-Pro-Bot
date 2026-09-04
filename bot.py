@@ -1658,7 +1658,7 @@ async def on_list_type(update: Update, context: ContextTypes.DEFAULT_TYPE):
         att = db.get_attendance(r["chat_id"], day)
         st = att["status"] if att else "—"
         emo = {"PRESENT":"✅","ABSENT":"🚫","CHHUTTI":"😁","HOLIDAY":"🏖️"}.get(st, "•")
-        lines.append(f"{i}. 👤 {_html.escape(r['naam'] or '-')} | 🏷️ {r['branch'] or '-'} | 🎓 {r['year'] or '-'} | 🔢 {code(r['roll_no'])} | 🆔 {code(r['unique_id'])} — {emo} {st}")
+        lines.append(f"{i}. 👤 <b>{_html.escape(r['naam'] or '-')}</b> | 🏷️ {r['branch'] or '-'} | 🎓 {r['year'] or '-'} | 🔢 {code(r['roll_no'])} | 🆔 {code(r['unique_id'])} — {emo} {st}")
     text = "\n".join(lines)
     if len(text) > 3500:
         # send as file
