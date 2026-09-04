@@ -458,10 +458,14 @@ async function holidaySubmit(dry) {
       return;
     }
     box.classList.add('hidden');
-    m.textContent = '🏖️ Holiday declare! 📅 ' + j.date + '\n' +
-      '📎 Proof file: 1 (' + j.type + ')\n' +
-      '👥 ' + j.updated + ' entries HOLIDAY me update\n' +
-      '📢 ' + j.broadcast_ok + ' users ko bheja, ' + j.broadcast_fail + ' fail';
+    m.textContent = j.scheduled_for
+      ? ('📅 Schedule ho gaya! ✅\n📅 Date: ' + j.date +
+         '\n📢 Notice 1-din-pehle (' + j.scheduled_for + ') subah 8:15 AM jayega — abhi kisi ko kuch nahi gaya.\n👥 ' +
+         j.updated + ' entries HOLIDAY me update (DB me ' + j.date + ' hi mark)')
+      : ('🏖️ Holiday declare! 📅 ' + j.date + '\n' +
+        '📎 Proof file: 1 (' + j.type + ')\n' +
+        '👥 ' + j.updated + ' entries HOLIDAY me update\n' +
+        '📢 ' + j.broadcast_ok + ' users ko bheja, ' + j.broadcast_fail + ' fail');
     cacheClear();
   } catch (e) { m.textContent = '❌ ' + e.message; }
   finally { bPrev.disabled = false; bDec.disabled = false; }

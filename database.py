@@ -56,7 +56,9 @@ def init_db() -> None:
                 date       TEXT PRIMARY KEY,
                 notice     BLOB,
                 type       TEXT NOT NULL,
-                saved_by   TEXT NOT NULL
+                saved_by   TEXT NOT NULL,
+                notify_day TEXT,
+                announced  INTEGER NOT NULL DEFAULT 0
             );
 
             CREATE TABLE IF NOT EXISTS broadcast_log (
@@ -83,6 +85,12 @@ def init_db() -> None:
         cols = {r["name"] for r in c.execute("PRAGMA table_info(students)")}
         if "year" not in cols:
             c.execute("ALTER TABLE students ADD COLUMN year TEXT")
+        # Migration: scheduled-holiday columns (notify_day/announced)
+        hcols = {r["name"] for r in c.execute("PRAGMA table_info(holiday_notices)")}
+        if "notify_day" not in hcols:
+            c.execute("ALTER TABLE holiday_notices ADD COLUMN notify_day TEXT")
+        if "announced" not in hcols:
+            c.execute("ALTER TABLE holiday_notices ADD COLUMN announced INTEGER NOT NULL DEFAULT 0")
 
 
 # ---------------- students ----------------
@@ -220,6 +228,29 @@ def get_holiday(day: str):
         ).fetchone()
 
 
+def set_holiday_schedule(day: str, notify_day: str | None) -> None:
+    """Advance-notice schedule set/clear karo (announced reset ke saath)."""
+    with _LOCK, _conn() as c:
+        c.execute("UPDATE holiday_notices SET notify_day = ?, announced = 0"
+                  " WHERE date = ?", (notify_day, day))
+
+
+def mark_holiday_announced(day: str) -> None:
+    with _LOCK, _conn() as c:
+        c.execute("UPDATE holiday_notices SET announced = 1 WHERE date = ?",
+                  (day,))
+
+
+def get_due_advance_notices(today: str):
+    """Jin holidays ka advance notice aaj jana hai (notify_day=today, unsent)."""
+    with _LOCK, _conn() as c:
+        return c.execute(
+            "SELECT * FROM holiday_notices WHERE notify_day = ?"
+            " AND announced = 0",
+            (today,),
+        ).fetchall()
+
+
 def get_all_holidays():
     with _LOCK, _conn() as c:
         return c.execute(
@@ -269,16 +300,3 @@ def get_recall_log(day: str):
     with _LOCK, _conn() as c:
         return c.execute("SELECT * FROM recall_log WHERE day = ?"
                          " ORDER BY id", (day,)).fetchall()
-
-
-def get_holidays_in_month(year: int, month: int) -> list[str]:
-    prefix = f"{year:04d}/{month:02d}/"
-    with _LOCK, _conn() as c:
-        return [
-            r["date"]
-            for r in c.execute(
-                "SELECT date FROM holiday_notices WHERE date LIKE ?"
-                " ORDER BY date",
-                (prefix + "%",),
-            )
-        ]

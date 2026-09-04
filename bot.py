@@ -122,8 +122,13 @@ MSG_ASK_HOLIDAY_PROOF = (
     "image ho ya text, kuch farak nahi padta. 📩"
 )
 MSG_HOLIDAY_BROADCAST = (
-    "🏖️ AAJ TOH CHHUTTI HAI MOZ KARO 🎉\n"
+    "🏖️ MOZ KARO, AAJ KI CHHUTTI HAI 🎉\n"
     "📅 Date: {day}"
+)
+MSG_HOLIDAY_ADVANCE = (
+    "🏖️ MOZ KARO, KAL KI CHHUTTI HAI 🎉\n"
+    "📅 Date: {day}\n"
+    "⏰ Kal college band rahega — taiyaar rehna! 😎"
 )
 MSG_EXIT_HINT = "\n\n❌ Bahar nikalne ke liye EXIT dabao ya /cancel bhejo."
 MSG_AUTO_ABSENT = (
@@ -162,15 +167,41 @@ def today_str() -> str:
     return stats_mod.fmt(stats_mod.today())
 
 
-async def broadcast_holiday(day: str, ntype: str, raw: bytes,
-                            proof_text: str, context) -> tuple[int, int]:
-    """Holiday notice turant SAB registered users ko bhejo (proof ke saath).
+def _cmp_day(a: str, b: str) -> int:
+    """DD/MM/YYYY compare: -1/0/+1 (a<b, a==b, a>b)."""
+    da, db_ = stats_mod._parse_ddmmyyyy(a), stats_mod._parse_ddmmyyyy(b)
+    return (da > db_) - (da < db_)
 
-    - image: wahi photo + caption 'AAJ TOH CHHUTTI HAI MOZ KARO + date'
-    - text: message 'AAJ TOH CHHUTTI HAI MOZ KARO + date + proof text'
+
+def day_before(day: str) -> str:
+    """Holiday se 1 din pehle ki date (advance-notice day)."""
+    from datetime import timedelta
+    return stats_mod.fmt(stats_mod._parse_ddmmyyyy(day) - timedelta(days=1))
+
+
+def holiday_user_text(day: str, ntype: str, proof_text: str, raw: bytes,
+                      advance: bool = False) -> str:
+    """Users ko jane wala EXACT text (preview + broadcast dono yahi use karein)."""
+    base = (MSG_HOLIDAY_ADVANCE if advance else MSG_HOLIDAY_BROADCAST).format(day=day)
+    if ntype == "image":
+        return base + (f"\n📝 {proof_text[:900]}" if proof_text else "")
+    try:
+        return base + "\n📝 Proof: " + raw.decode(errors="replace")[:1500]
+    except Exception:
+        return base
+
+
+async def broadcast_holiday(day: str, ntype: str, raw: bytes,
+                            proof_text: str, context,
+                            advance: bool = False) -> tuple[int, int]:
+    """Holiday notice SAB registered users ko bhejo (proof ke saath).
+
+    - image: wahi photo + caption 'MOZ KARO (AAJ/KAL) + date'
+    - text: message 'MOZ KARO (AAJ/KAL) + date + proof text'
+    advance=True par KAL KI CHHUTTI wala text jata hai.
     Returns (ok, fail). Kisi ek user par fail ho to bhi continue.
     """
-    base = MSG_HOLIDAY_BROADCAST.format(day=day)
+    base = (MSG_HOLIDAY_ADVANCE if advance else MSG_HOLIDAY_BROADCAST).format(day=day)
     ok, fail = 0, 0
     for stu in db.get_all_students():
         cid = stu["chat_id"]
@@ -220,6 +251,19 @@ async def recall_holiday_broadcast(day: str, bot) -> tuple[int, int]:
         return (-2, -2)  # attempts khatam
     _RECALL_LAST[day] = now
     rows = db.get_broadcast_log("holiday", day)
+    if not rows:
+        # Kuch bheja hi nahi gaya — pending schedule hai to cancel karo
+        hol = db.get_holiday(day)
+        if hol is not None:
+            try:
+                pending = hol["notify_day"] and not hol["announced"]
+            except Exception:
+                pending = False
+            if pending:
+                db.set_holiday_schedule(day, None)
+                db.log_recall(day, 0, 0)
+                return (-3, -3)  # schedule cancel ho gaya
+        return (0, 0)
     deleted, failed = 0, 0
     for r in rows:
         try:
@@ -1163,13 +1207,32 @@ async def on_holiday_notice(update: Update, context: ContextTypes.DEFAULT_TYPE):
     export_holiday_proof_file(day, ntype, raw)
     # Holiday wale din sabki attendance HOLIDAY me update (bewajah present/absent na gine)
     n_updated = mark_holiday_attendance(day)
-    # INSTANT BROADCAST: declare hote hi sabko message + proof
-    ok, fail = await broadcast_holiday(day, ntype, raw, proof_text, context)
+    # AUTO RULE: future date -> schedule (no instant broadcast),
+    # aaj/past -> instant broadcast (purana behavior)
+    cmp = _cmp_day(day, today_str())
     ADMIN_NOTICE_WAIT.discard(chat_id)
     HOLIDAY_DATE.pop(chat_id, None)
-    prev = MSG_HOLIDAY_BROADCAST.format(day=day)
-    prev += (f"\n📝 {proof_text[:120]}" if ntype == "image" and proof_text
-             else ("\n📝 Proof: " + proof_text[:120] if proof_text else ""))
+    prev = holiday_user_text(day, ntype, proof_text, raw, advance=False)
+    if cmp > 0:
+        nday = day_before(day)
+        db.set_holiday_schedule(day, nday)
+        await update.message.reply_text(
+            f"📅 Schedule ho gaya! ✅\n"
+            f"📅 Date: {day} | 📎 Proof: {ntype} | "
+            f"👥 {n_updated} entries HOLIDAY me update (DB me {day} hi mark)\n"
+            f"📢 Notice 1-din-pehle ({nday}) subah 8:15 AM jayega — "
+            f"abhi kisi ko kuch nahi gaya.\n"
+            f"👁️ Users ko ye jayega:\n"
+            + holiday_user_text(day, ntype, proof_text, raw, advance=True),
+            reply_markup=InlineKeyboardMarkup(
+                [[InlineKeyboardButton(BTN_RECALL,
+                                       callback_data=CB_RECALL_PREFIX + day)],
+                 [InlineKeyboardButton(BTN_MENU, callback_data=CB_MENU_OPEN)]]))
+        queue_backup_push("holiday")
+        return ConversationHandler.END
+    # INSTANT BROADCAST: declare hote hi sabko message + proof
+    ok, fail = await broadcast_holiday(day, ntype, raw, proof_text, context)
+    prev = holiday_user_text(day, ntype, proof_text, raw, advance=False)
     await update.message.reply_text(
         f"🏖️ Holiday declare kar diya gaya hai! ✅\n"
         f"📅 Date: {day} | 📎 Proof: {ntype} | 👥 {n_updated} entries HOLIDAY me update\n"
@@ -1191,6 +1254,12 @@ def _recall_report(day: str, deleted: int, failed: int) -> str:
         return ("⏳ Abhi-abi recall hua tha — 60 sec rukkar dobara dabao.")
     if (deleted, failed) == (-2, -2):
         return "⛔ Is date ke attempts khatam (max 3). Ab recall nahi hoga."
+    if (deleted, failed) == (-3, -3):
+        return (f"📅 Schedule cancel ho gaya ({day})!\n"
+                f"Notice ab nahi jayega. DB marking waisi hi rahegi.")
+    if (deleted, failed) == (0, 0):
+        return (f"ℹ️ {day} ka koi sent broadcast nahi mila.\n"
+                f"(Pehle hi recall ho chuka ya kuch bheja hi nahi gaya.)")
     return (f"🗑️ Recall complete ({day})!\n"
             f"✅ Deleted: {deleted} | ❌ Failed: {failed}\n"
             "(Failed = 48h over / user ne pehle delete kiya)")
@@ -1314,6 +1383,39 @@ async def on_students_count(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 # ---------------- SCHEDULED JOBS ----------------
+async def advance_notice_job(context: ContextTypes.DEFAULT_TYPE):
+    """8:15 AM IST - kal ki scheduled chhutti ka advance notice (1-din-pehle).
+
+    Jin holidays ki notify_day == aaj aur announced == 0 → KAL KI text + proof
+    sabko (users + admin), phir announced=1. Restart-proof (DB persisted).
+    """
+    day = today_str()
+    try:
+        due = db.get_due_advance_notices(day)
+    except Exception as e:
+        log.warning("advance query fail: %s", e)
+        return
+    for hol in due:
+        hday = hol["date"]
+        try:
+            raw = bytes(hol["notice"]) if hol["notice"] else b""
+        except Exception:
+            raw = b""
+        proof = ""
+        if hol["type"] != "image":
+            try:
+                proof = raw.decode(errors="replace")
+            except Exception:
+                proof = ""
+        try:
+            ok, fail = await broadcast_holiday(
+                hday, hol["type"], raw, proof, context, advance=True)
+            db.mark_holiday_announced(hday)
+            log.info("advance notice sent for %s: ok=%d fail=%d", hday, ok, fail)
+        except Exception as e:
+            log.warning("advance notice fail %s: %s", hday, e)
+
+
 async def daily_job(context: ContextTypes.DEFAULT_TYPE):
     """8:15 AM IST - sab registered users se poocho (SUNDAY skip, holiday par MOZ KARO)."""
     t = stats_mod.today()
@@ -1526,6 +1628,13 @@ def build_app() -> Application:
     try:
         from telegram.ext import JobQueue
         app.job_queue.run_daily(
+            advance_notice_job,
+            time=__import__("datetime").time(
+                hour=config.DAILY_QUESTION_HOUR,
+                minute=config.DAILY_QUESTION_MINUTE,
+                tzinfo=stats_mod._TZ),
+            name="advance_815")
+        app.job_queue.run_daily(
             daily_job,
             time=__import__("datetime").time(
                 hour=config.DAILY_QUESTION_HOUR,
@@ -1546,7 +1655,7 @@ def build_app() -> Application:
                 hour=2, minute=0,
                 tzinfo=stats_mod._TZ),
             name="backup_2am")
-        log.info("Job queue scheduled: daily 8:15 AM, hourly reminder, 5:01 PM auto-absent, 2 AM backup (IST)")
+        log.info("Job queue scheduled: advance 8:15 AM, daily 8:15 AM, hourly reminder, 5:01 PM auto-absent, 2 AM backup (IST)")
     except ImportError:
         log.warning("JobQueue nahi mila - scheduled jobs disabled (pip install 'python-telegram-bot[job-queue]')")
 

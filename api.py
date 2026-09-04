@@ -628,16 +628,30 @@ async def admin_holiday(date: str = Form(...), proof_text: str = Form(""),
         ntype = "text"
         ptext = proof_text.strip()
     import bot as bot_mod
-    base = bot_mod.MSG_HOLIDAY_BROADCAST.format(day=date)
-    preview = (base + (f"\n📝 {ptext[:900]}" if ptext else "")
-               if ntype == "image" else
-               base + "\n📝 Proof: " + raw.decode(errors="replace")[:1500])
+    future = bot_mod._cmp_day(date, stats_mod.fmt(stats_mod.today())) > 0
+    preview = bot_mod.holiday_user_text(date, ntype, ptext, raw,
+                                        advance=future)
     if dry_run:
         # ZERO side-effect: no save/export/HOLIDAY-mark/broadcast/backup
         return {"ok": True, "dry_run": True, "date": date, "type": ntype,
-                "preview": preview}
+                "preview": preview,
+                "scheduled_for": bot_mod.day_before(date) if future else None}
+    db.save_holiday(date, raw, ntype, config.ADMIN_CHAT_ID)
     bot_mod.export_holiday_proof_file(date, ntype, raw)
     n_upd = bot_mod.mark_holiday_attendance(date)
+    if future:
+        # AUTO RULE: future date -> schedule, NO instant broadcast.
+        # Marking/export/backup abhi (accuracy intact).
+        nday = bot_mod.day_before(date)
+        db.set_holiday_schedule(date, nday)
+        try:
+            bot_mod.queue_backup_push("holiday-app")
+        except Exception:
+            pass
+        return {"ok": True, "date": date, "type": ntype,
+                "updated": n_upd, "broadcast_ok": 0, "broadcast_fail": 0,
+                "scheduled_for": nday,
+                "preview": preview}
     # Telegram broadcast (direct Bot API — polling se conflict nahi hota)
     ok, fail = 0, 0
     try:
@@ -682,5 +696,8 @@ async def admin_recall(body: RecallIn,
     if (deleted, failed) == (-2, -2):
         raise HTTPException(status_code=403, detail={
             "code": "exhausted", "message": "Attempts khatam (max 3)"})
+    if (deleted, failed) == (-3, -3):
+        return {"ok": True, "date": body.date.strip(),
+                "schedule_cancelled": True, "deleted": 0, "failed": 0}
     return {"ok": True, "date": body.date.strip(),
             "deleted": deleted, "failed": failed}
