@@ -11,7 +11,6 @@ CREATE TABLE students (
 INSERT INTO students VALUES('6267031612','Shivam ji','CS','2405210100046','STU-52DBFEDE','2026-08-06 09:00:00','3rd Year');
 INSERT INTO students VALUES('8625984731','Tester','CS','2405210199946','STU-A75B38BB','2026-09-02 20:58:24',NULL);
 INSERT INTO students VALUES('5320957474','Prince','IT','2405210130016','STU-CDD9579E','2026-08-20 00:00:00','3rd Year');
-INSERT INTO students VALUES('app:7ad1490b6492','WebTestUser','CS','TEST99901','STU-A581BB0D','2026-09-04 00:40:15','2nd Year');
 CREATE TABLE attendance (
                 date       TEXT,
                 chat_id    TEXT,
@@ -49,6 +48,9 @@ INSERT INTO attendance VALUES('03/09/2026','8625984731','ABSENT','bot-auto');
 INSERT INTO attendance VALUES('04/09/2026','6267031612','HOLIDAY','admin-holiday: holiday declared by admin');
 INSERT INTO attendance VALUES('04/09/2026','8625984731','HOLIDAY','admin-holiday: holiday declared by admin');
 INSERT INTO attendance VALUES('04/09/2026','5320957474','HOLIDAY','admin-holiday: holiday declared by admin');
+INSERT INTO attendance VALUES('10/08/2026','6267031612','HOLIDAY','admin-holiday: holiday declared by admin');
+INSERT INTO attendance VALUES('10/08/2026','8625984731','HOLIDAY','admin-holiday: holiday declared by admin');
+INSERT INTO attendance VALUES('10/08/2026','5320957474','HOLIDAY','admin-holiday: holiday declared by admin');
 CREATE TABLE holiday_notices (
                 date       TEXT PRIMARY KEY,
                 notice     BLOB,
@@ -91,6 +93,15 @@ INSERT INTO api_tokens VALUES('GNB19VX4vaui9RO6Wog6EN6GP3K890RU3b8ZqkPZbLo','532
 INSERT INTO api_tokens VALUES('uYrSdjLh389cCbquluX6NWmircn-UqIA9ABM5qN3GTc','6267031612','2026-09-04 00:26:54');
 INSERT INTO api_tokens VALUES('HtV5HUMXZb5xYviy--6IBtFqERgW0hinBxZjvluOP_w','6267031612','2026-09-04 00:35:08');
 INSERT INTO api_tokens VALUES('szY_NHnyKc4K9MoRSKXCO1AbKq-H51HvtcLVvbSBSP4','6267031612','2026-09-04 00:38:12');
+INSERT INTO api_tokens VALUES('AIeNGAar4DvvLr_2D0qTws0IMjcAQYcPvd2n4VoHWxo','app:7ad1490b6492','2026-09-04 00:40:20');
+INSERT INTO api_tokens VALUES('0e8xk6AGNoXW3DLXRVV1i4Uv9-XvjZcI-CuSYolNESk','6267031612','2026-09-04 00:49:26');
+INSERT INTO api_tokens VALUES('UPkP-KTWbTccNKc-X_nuAB-8_YSAT-cCOxouk84wt4M','6267031612','2026-09-04 07:05:17');
+INSERT INTO api_tokens VALUES('U176FlBtgv2_dkBH0WAPRTyAn2oyQsWE_SErgM2kOa0','6267031612','2026-09-04 07:11:33');
+INSERT INTO api_tokens VALUES('PZkwAh6b-eFXGThBGiEjCxvziQBbjLW9y_SIpZh8uz0','6267031612','2026-09-04 08:07:09');
+INSERT INTO api_tokens VALUES('BDO0HnbZkb5tljVIyY9E5cnoBe4Aj478GviqV12Cvr4','5320957474','2026-09-04 08:07:33');
+INSERT INTO api_tokens VALUES('v4Gc5oNJ0gafc65LDiS0_CW1uWuTAMCqy7l7CgNiQLs','6267031612','2026-09-04 08:24:03');
+INSERT INTO api_tokens VALUES('DsYT56cUzP6SNxs7NZe1gFwu8y96lLAd364DtPmynR8','6267031612','2026-09-04 08:25:15');
+INSERT INTO api_tokens VALUES('At47RIhNRtGyUPvXuYWYEusRJl-0Rb5_UbYDztTxwE0','6267031612','2026-09-04 08:34:49');
 CREATE TABLE admin_auth (
                    chat_id    TEXT PRIMARY KEY,
                    pwd_hash   TEXT NOT NULL,
@@ -113,6 +124,12 @@ CREATE TABLE broadcast_log (
                 message_id INTEGER NOT NULL,
                 sent_at    TEXT DEFAULT (datetime('now'))
             );
+INSERT INTO broadcast_log VALUES(5,'holiday','04/09/2026','6267031612',217,'2026-09-04 02:45:00');
+INSERT INTO broadcast_log VALUES(6,'holiday','04/09/2026','8625984731',218,'2026-09-04 02:45:01');
+INSERT INTO broadcast_log VALUES(7,'holiday','04/09/2026','5320957474',219,'2026-09-04 02:45:01');
+INSERT INTO broadcast_log VALUES(8,'holiday','10/08/2026','6267031612',252,'2026-09-04 08:49:17');
+INSERT INTO broadcast_log VALUES(9,'holiday','10/08/2026','8625984731',253,'2026-09-04 08:49:17');
+INSERT INTO broadcast_log VALUES(10,'holiday','10/08/2026','5320957474',254,'2026-09-04 08:49:17');
 CREATE TABLE recall_log (
                 id         INTEGER PRIMARY KEY AUTOINCREMENT,
                 day        TEXT NOT NULL,
@@ -123,7 +140,7 @@ CREATE TABLE recall_log (
 PRAGMA writable_schema=ON;
 CREATE TABLE IF NOT EXISTS sqlite_sequence(name,seq);
 DELETE FROM sqlite_sequence;
-INSERT INTO sqlite_sequence VALUES('broadcast_log',4);
+INSERT INTO sqlite_sequence VALUES('broadcast_log',10);
 INSERT INTO sqlite_sequence VALUES('recall_log',5);
 CREATE INDEX idx_students_roll
                 ON students(roll_no);
