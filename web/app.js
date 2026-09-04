@@ -386,20 +386,30 @@ document.getElementById('btn-recall').onclick = async () => {
     box.textContent = '🗑️ Recall complete (' + r.date + ')!\n✅ Deleted: ' + r.deleted + ' | ❌ Failed: ' + r.failed;
   } catch (e) { box.textContent = '❌ ' + e.message; }
 };
-document.getElementById('btn-holiday').onclick = async () => {
-  const m = document.getElementById('admin-msg'); m.textContent = '';
+async function holidaySubmit(dry) {
+  const m = document.getElementById('admin-msg');
+  const box = document.getElementById('preview-out');
+  m.textContent = '';
   try {
     const fd = new FormData();
     fd.append('date', document.getElementById('in-hday').value.trim());
     fd.append('proof_text', document.getElementById('in-htext').value.trim());
     const f = document.getElementById('in-hphoto').files[0];
     if (f) fd.append('proof', f);
-    const r = await fetch(S.base + '/admin/holiday',
+    const r = await fetch(S.base + '/admin/holiday?dry_run=' + (dry ? 'true' : 'false'),
       { method: 'POST', headers: { 'X-Token': S.token }, body: fd });
     const j = await r.json();
-    if (!r.ok) throw new Error(j.detail || 'Error');
+    if (!r.ok) throw new Error((j.detail && (j.detail.message || j.detail)) || 'Error');
+    if (dry) {
+      box.classList.remove('hidden');
+      box.textContent = '👁️ Preview (users ko YEHI dikhega):\n\n' + j.preview;
+      return;
+    }
+    box.classList.add('hidden');
     m.textContent = '🏖️ Holiday declare! ' + j.date + ' | ' + j.updated +
                     ' entries | broadcast ' + j.broadcast_ok + '/' + j.broadcast_fail;
     cacheClear();
   } catch (e) { m.textContent = '❌ ' + e.message; }
-};
+}
+document.getElementById('btn-preview').onclick = () => holidaySubmit(true);
+document.getElementById('btn-holiday').onclick = () => holidaySubmit(false);

@@ -553,6 +553,7 @@ def admin_lookup(key: str, _admin: str = Depends(_require_admin)):
 @app.post("/admin/holiday")
 async def admin_holiday(date: str = Form(...), proof_text: str = Form(""),
                         proof: Optional[UploadFile] = File(None),
+                        dry_run: bool = False,
                         _admin: str = Depends(_require_admin)):
     import re
     if not re.match(r"^\d{2}/\d{2}/\d{4}$", date):
@@ -569,8 +570,15 @@ async def admin_holiday(date: str = Form(...), proof_text: str = Form(""),
         raw = proof_text.strip().encode() or date.encode()
         ntype = "text"
         ptext = proof_text.strip()
-    db.save_holiday(date, raw, ntype, config.ADMIN_CHAT_ID)
     import bot as bot_mod
+    base = bot_mod.MSG_HOLIDAY_BROADCAST.format(day=date)
+    preview = (base + (f"\n📝 {ptext[:900]}" if ptext else "")
+               if ntype == "image" else
+               base + "\n📝 Proof: " + raw.decode(errors="replace")[:1500])
+    if dry_run:
+        # ZERO side-effect: no save/export/HOLIDAY-mark/broadcast/backup
+        return {"ok": True, "dry_run": True, "date": date, "type": ntype,
+                "preview": preview}
     bot_mod.export_holiday_proof_file(date, ntype, raw)
     n_upd = bot_mod.mark_holiday_attendance(date)
     # Telegram broadcast (direct Bot API — polling se conflict nahi hota)

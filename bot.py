@@ -162,29 +162,6 @@ def today_str() -> str:
     return stats_mod.fmt(stats_mod.today())
 
 
-def parse_holiday_day(raw_text: str | None) -> str:
-    """Admin notice ke first-word me DD/MM/YYYY ho to wahi date, warna aaj.
-
-    Future-date support: '10/09/2026 Kal band rahega' -> '10/09/2026'.
-    Galat/expired format -> today_str() fallback (caller validate kare).
-    """
-    txt = (raw_text or "").strip()
-    m = re.match(r"^(\d{2}/\d{2}/\d{4})\b", txt)
-    if not m:
-        return today_str()
-    try:
-        stats_mod._parse_ddmmyyyy(m.group(1))
-        return m.group(1)
-    except Exception:
-        return today_str()
-
-
-def strip_date_prefix(raw_text: str | None) -> str:
-    """'10/09/2026 Kal band' -> 'Kal band' (broadcast proof saaf dikhe)."""
-    txt = (raw_text or "").strip()
-    return re.sub(r"^\d{2}/\d{2}/\d{4}\b\s*", "", txt).strip()
-
-
 async def broadcast_holiday(day: str, ntype: str, raw: bytes,
                             proof_text: str, context) -> tuple[int, int]:
     """Holiday notice turant SAB registered users ko bhejo (proof ke saath).
@@ -1190,10 +1167,14 @@ async def on_holiday_notice(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ok, fail = await broadcast_holiday(day, ntype, raw, proof_text, context)
     ADMIN_NOTICE_WAIT.discard(chat_id)
     HOLIDAY_DATE.pop(chat_id, None)
+    prev = MSG_HOLIDAY_BROADCAST.format(day=day)
+    prev += (f"\n📝 {proof_text[:120]}" if ntype == "image" and proof_text
+             else ("\n📝 Proof: " + proof_text[:120] if proof_text else ""))
     await update.message.reply_text(
         f"🏖️ Holiday declare kar diya gaya hai! ✅\n"
         f"📅 Date: {day} | 📎 Proof: {ntype} | 👥 {n_updated} entries HOLIDAY me update\n"
         f"📢 Broadcast ho gaya! ✅ {ok} ko bheja, ❌ {fail} fail.\n"
+        f"👁️ Users ko ye gaya:\n{prev}\n"
         "Ye holiday data se hi sabki attendance calculate hogi — "
         "us din kisi ko bewajah chhutti/absent nahi lagegi. 🎯",
         reply_markup=InlineKeyboardMarkup(
