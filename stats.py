@@ -85,7 +85,29 @@ def college_open_dates(student_row, upto: date | None = None) -> list[date]:
 
 
 def college_closed_dates(student_row, upto: date | None = None) -> list[date]:
-    """Registration se aaj tak: saare SUNDAY + saved holidays."""
+    """Registration se aaj tak: SIRF SUNDAY (band din).
+
+    NOTE: admin-declared holidays isme NAHI gini jaati — wo 'Chhutti'
+    me dikhti hain (declared_holiday_dates dekho).
+    """
+    reg = _registered_date(student_row)
+    if reg is None:
+        return []
+    end = upto or today()
+    out = []
+    d = reg
+    while d <= end:
+        if is_sunday(d):
+            out.append(d)
+        d += timedelta(days=1)
+    return out
+
+
+def declared_holiday_dates(student_row, upto: date | None = None) -> list[str]:
+    """Registration-window me admin-declared holidays (DD/MM/YYYY, newest-first).
+
+    month-filter ke saath compute_stats me bhi use hoti hai.
+    """
     import database as db
 
     reg = _registered_date(student_row)
@@ -96,10 +118,10 @@ def college_closed_dates(student_row, upto: date | None = None) -> list[date]:
     out = []
     d = reg
     while d <= end:
-        if is_sunday(d) or fmt(d) in holidays:
-            out.append(d)
+        if fmt(d) in holidays:
+            out.append(fmt(d))
         d += timedelta(days=1)
-    return out
+    return sort_dates_desc(out)
 
 
 def compute_stats(chat_id: str, month: tuple[int, int] | None = None) -> dict:
@@ -146,7 +168,16 @@ def compute_stats(chat_id: str, month: tuple[int, int] | None = None) -> dict:
 
     worked = len(open_days)
     marked = len(present) + len(chutti) + len(absent)
+    # % MATH SAME: denominator = khule din (Sunday + declared nikaal kar),
+    # numerator = present din. Display labels alag hain, formula nahi.
     percent = (len(present) / worked * 100) if worked else 0.0
+
+    declared = declared_holiday_dates(stu)
+    if month:
+        yyyy, mm = month
+        declared = [d for d in declared
+                    if _parse_ddmmyyyy(d).year == yyyy
+                    and _parse_ddmmyyyy(d).month == mm]
 
     return {
         "naam": stu["naam"] or "-",
@@ -157,12 +188,14 @@ def compute_stats(chat_id: str, month: tuple[int, int] | None = None) -> dict:
         "college_open": worked,
         "college_closed": len(college_closed_dates(stu)),
         "present": len(present),
-        "chutti": len(chutti),
+        "chutti": len(declared),
+        "chutti_self": len(chutti),
         "absent": len(absent),
         "percent": round(percent, 1),
         "present_dates": present,
         "absent_dates": absent,
         "chutti_dates": chutti,
+        "declared_dates": declared,
         "month": month,
     }
 
@@ -173,9 +206,9 @@ def stats_message(s: dict, title: str = "📊 ATTENDANCE REPORT") -> str:
         f"👤 {s['naam']}  |  {s['branch']}  |  {s['year']}  |  Roll: {s['roll_no']}",
         "",
         f"🎒 College khule din : {s['college_open']}",
-        f"🔒 College band din  : {s['college_closed']}",
+        f"🔒 College band din  : {s['college_closed']} (sirf Sunday)",
         f"✅ Present           : {s['present']}",
-        f"😁 Chutti (self)     : {s['chutti']}",
+        f"😁 Chhutti (declared): {s['chutti']}",
         f"🚫 Absent            : {s['absent']}",
         f"📊 Attendance        : {s['percent']}%",
     ]

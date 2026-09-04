@@ -566,14 +566,17 @@ def menu_result_text(chat_id: str, which: str, custom_date=None) -> str:
         return (f"🏫 TOTAL COLLEGE GAYE DIN: {len(dates)}\n\n"
                 + ("\n".join(f"  • {d}" for d in dates) or "  (koi nahi)"))
     if which == BTN_CHUTTI_TOTAL:
-        return (f"😴 TOTAL CHHUTTI (abhi tak): {s['chutti'] + s['absent']}\n\n"
-                f"😁 self-declared: {s['chutti']}\n🚫 absent (auto): {s['absent']}")
+        return (f"😴 TOTAL CHHUTTI (abhi tak): "
+                f"{s['chutti'] + s['chutti_self'] + s['absent']}\n\n"
+                f"🏖️ declared: {s['chutti']}\n"
+                f"😁 self-declared: {s['chutti_self']}\n"
+                f"🚫 absent (auto): {s['absent']}")
     if which == BTN_KHULA:
         return (f"🎒 COLLEGE KHULA THA: {s['college_open']} din\n"
                 f"(registration se aaj tak, SUNDAY + chhutti chhod kar)")
     if which == BTN_BAND:
         return (f"🔒 COLLEGE BAND THA: {s['college_closed']} din\n"
-                f"(saare SUNDAY + admin-declared chhutti)")
+                f"(sirf SUNDAY — declared chhutti 'Chhutti' me gini jaati hai)")
     if which == BTN_MONTH:
         sm = stats_mod.compute_stats(chat_id, (today.year, today.month))
         return stats_mod.stats_message(
