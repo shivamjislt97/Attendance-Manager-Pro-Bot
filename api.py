@@ -12,7 +12,9 @@ Auth: POST /login {unique_id, roll_no} -> X-Token header har request par.
 import io
 import os
 import secrets
+import hashlib
 import sqlite3
+import time
 from datetime import date, timedelta
 from typing import Optional
 
@@ -59,6 +61,22 @@ def _startup() -> None:
                    created_at TEXT DEFAULT (datetime('now'))
                )"""
         )
+        c.execute(
+            """CREATE TABLE IF NOT EXISTS admin_auth (
+                   chat_id    TEXT PRIMARY KEY,
+                   pwd_hash   TEXT NOT NULL,
+                   updated_at TEXT DEFAULT (datetime('now'))
+               )"""
+        )
+        c.execute(
+            """CREATE TABLE IF NOT EXISTS admin_reset (
+                   chat_id    TEXT PRIMARY KEY,
+                   code_hash  TEXT NOT NULL,
+                   expires_at INTEGER NOT NULL,
+                   tries      INTEGER NOT NULL DEFAULT 0,
+                   created_at INTEGER NOT NULL
+               )"""
+        )
         c.commit()
     finally:
         c.close()
@@ -68,6 +86,61 @@ def _startup() -> None:
 class LoginIn(BaseModel):
     unique_id: Optional[str] = None
     roll_no: Optional[str] = None
+    password: Optional[str] = None
+
+
+def _pwd_hash(pw: str, salt: Optional[bytes] = None) -> str:
+    """PBKDF2 hash (stdlib) -> 'salt_hex$hash_hex'. Plaintext kabhi store nahi."""
+    salt = salt or secrets.token_bytes(16)
+    h = hashlib.pbkdf2_hmac("sha256", pw.encode(), salt, 200_000)
+    return salt.hex() + "$" + h.hex()
+
+
+def _pwd_verify(pw: str, stored: str) -> bool:
+    try:
+        salt_hex, _ = stored.split("$", 1)
+        return secrets.compare_digest(_pwd_hash(pw, bytes.fromhex(salt_hex)),
+                                      stored)
+    except Exception:
+        return False
+
+
+def _admin_row():
+    c = sqlite3.connect(config.DB_PATH, timeout=30)
+    try:
+        c.row_factory = sqlite3.Row
+        return c.execute("SELECT * FROM admin_auth WHERE chat_id = ?",
+                         (str(config.ADMIN_CHAT_ID),)).fetchone()
+    finally:
+        c.close()
+
+
+def _resolve_admin_identity(unique_id: str, roll_no: str):
+    """Admin UID/roll verify karo (password ke bina pehchan)."""
+    uid, roll = (unique_id or "").strip(), (roll_no or "").strip()
+    if not uid and not roll:
+        raise HTTPException(status_code=400,
+                            detail="UNIQUE ID ya roll number — koi ek do")
+    c = sqlite3.connect(config.DB_PATH, timeout=30)
+    try:
+        c.row_factory = sqlite3.Row
+        if uid:
+            stu = c.execute("SELECT * FROM students WHERE unique_id = ?",
+                            (uid,)).fetchone()
+            if stu is None:
+                raise HTTPException(status_code=401, detail="UNIQUE ID galat")
+        else:
+            stu = c.execute("SELECT * FROM students WHERE roll_no = ?"
+                            " ORDER BY chat_id", (roll,)).fetchone()
+            if stu is None:
+                raise HTTPException(status_code=401, detail="Roll galat")
+    finally:
+        c.close()
+    if stu["chat_id"] != str(config.ADMIN_CHAT_ID):
+        raise HTTPException(status_code=403, detail="Sirf admin ke liye")
+    if roll and str(stu["roll_no"]) != roll:
+        raise HTTPException(status_code=401, detail="Roll number match nahi hua")
+    return stu
 
 
 def _get_chat(x_token: Optional[str] = Header(default=None)) -> str:
@@ -125,6 +198,17 @@ def login(body: LoginIn):
             stu = rows[0]
     finally:
         c.close()
+    is_admin = stu["chat_id"] == str(config.ADMIN_CHAT_ID)
+    if is_admin:
+        # Admin login me password MANDATORY hai (token isse pehle banta hi nahi)
+        auth = _admin_row()
+        if auth is None:
+            raise HTTPException(status_code=401, detail={
+                "code": "password_not_set",
+                "message": "Pehli baar hai — pehle admin password set karo"})
+        if not body.password or not _pwd_verify(body.password, auth["pwd_hash"]):
+            raise HTTPException(status_code=401, detail={
+                "code": "password_required", "message": "Admin password galat"})
     token = secrets.token_urlsafe(32)
     c = sqlite3.connect(config.DB_PATH, timeout=30)
     try:
@@ -134,8 +218,139 @@ def login(body: LoginIn):
     finally:
         c.close()
     return {"token": token, "naam": stu["naam"], "branch": stu["branch"],
-            "year": stu["year"],
-            "is_admin": stu["chat_id"] == str(config.ADMIN_CHAT_ID)}
+            "year": stu["year"], "is_admin": is_admin}
+
+
+class SetPwIn(BaseModel):
+    unique_id: Optional[str] = None
+    roll_no: Optional[str] = None
+    password: str
+
+
+class ForgotIn(BaseModel):
+    unique_id: Optional[str] = None
+    roll_no: Optional[str] = None
+
+
+class ResetPwIn(BaseModel):
+    unique_id: Optional[str] = None
+    roll_no: Optional[str] = None
+    code: str
+    new_password: str
+
+
+def _check_pw_policy(pw: str) -> None:
+    if not (4 <= len(pw) <= 40):
+        raise HTTPException(status_code=400,
+                            detail="Password 4-40 characters ka ho")
+
+
+@app.post("/admin/set-password")
+def set_password(body: SetPwIn, x_token: Optional[str] = Header(default=None)):
+    """Pehli baar (bina password ke, UID/roll pehchan par) ya logged-in admin
+    X-Token se password set/badlo."""
+    _check_pw_policy(body.password or "")
+    auth = _admin_row()
+    if auth is None:
+        # First-time: admin UID/roll se pehchan (password abhi hai hi nahi)
+        _resolve_admin_identity(body.unique_id or "", body.roll_no or "")
+    else:
+        # Badalna hai to logged-in admin token chahiye
+        if not x_token:
+            raise HTTPException(status_code=401, detail={
+                "code": "password_required",
+                "message": "Pehle admin login karo"})
+        if _get_chat(x_token) != str(config.ADMIN_CHAT_ID):
+            raise HTTPException(status_code=403, detail="Sirf admin ke liye")
+    c = sqlite3.connect(config.DB_PATH, timeout=30)
+    try:
+        c.execute("INSERT OR REPLACE INTO admin_auth (chat_id, pwd_hash,"
+                  " updated_at) VALUES (?, ?, datetime('now'))",
+                  (str(config.ADMIN_CHAT_ID), _pwd_hash(body.password)))
+        c.commit()
+    finally:
+        c.close()
+    return {"ok": True}
+
+
+RESET_COOLDOWN = 300   # dobara code 5 min baad
+RESET_TTL = 600        # code 10 min valid
+RESET_MAX_TRIES = 5
+
+
+@app.post("/admin/forgot-password")
+async def forgot_password(body: ForgotIn):
+    """Reset code Telegram admin chat par bhejo (UID/roll pehchan ke baad)."""
+    _resolve_admin_identity(body.unique_id or "", body.roll_no or "")
+    now = int(time.time())
+    c = sqlite3.connect(config.DB_PATH, timeout=30)
+    try:
+        c.row_factory = sqlite3.Row
+        old = c.execute("SELECT * FROM admin_reset WHERE chat_id = ?",
+                        (str(config.ADMIN_CHAT_ID),)).fetchone()
+        if old and now - old["created_at"] < RESET_COOLDOWN:
+            raise HTTPException(status_code=429, detail={
+                "code": "cooldown",
+                "message": "Code abhi bheja tha — 5 min baad try karo"})
+        code = f"{secrets.randbelow(900000) + 100000}"
+        c.execute("INSERT OR REPLACE INTO admin_reset"
+                  " (chat_id, code_hash, expires_at, tries, created_at)"
+                  " VALUES (?, ?, ?, 0, ?)",
+                  (str(config.ADMIN_CHAT_ID),
+                   hashlib.sha256(code.encode()).hexdigest(),
+                   now + RESET_TTL, now))
+        c.commit()
+    finally:
+        c.close()
+    try:
+        from telegram import Bot
+        await Bot(token=config.BOT_TOKEN).send_message(
+            chat_id=int(config.ADMIN_CHAT_ID),
+            text=f"🔑 Password reset code: {code}\n⏰ 10 min valid hai.")
+    except Exception:
+        raise HTTPException(status_code=502, detail={
+            "code": "send_fail",
+            "message": "Telegram par code nahi gaya, dobara try karo"})
+    return {"ok": True}
+
+
+@app.post("/admin/reset-password")
+def reset_password(body: ResetPwIn):
+    """Telegram code verify karke naya password set karo."""
+    _resolve_admin_identity(body.unique_id or "", body.roll_no or "")
+    _check_pw_policy(body.new_password or "")
+    now = int(time.time())
+    c = sqlite3.connect(config.DB_PATH, timeout=30)
+    try:
+        c.row_factory = sqlite3.Row
+        row = c.execute("SELECT * FROM admin_reset WHERE chat_id = ?",
+                        (str(config.ADMIN_CHAT_ID),)).fetchone()
+        if row is None:
+            raise HTTPException(status_code=400, detail={
+                "code": "no_code", "message": "Pehle reset code mangwao"})
+        if row["tries"] >= RESET_MAX_TRIES or now > row["expires_at"]:
+            c.execute("DELETE FROM admin_reset WHERE chat_id = ?",
+                      (str(config.ADMIN_CHAT_ID),))
+            c.commit()
+            raise HTTPException(status_code=401, detail={
+                "code": "expired", "message": "Code expire — naya mangwao"})
+        if not secrets.compare_digest(
+                hashlib.sha256((body.code or '').strip().encode()).hexdigest(),
+                row["code_hash"]):
+            c.execute("UPDATE admin_reset SET tries = tries + 1"
+                      " WHERE chat_id = ?", (str(config.ADMIN_CHAT_ID),))
+            c.commit()
+            raise HTTPException(status_code=401, detail={
+                "code": "wrong_code", "message": "Code galat hai"})
+        c.execute("INSERT OR REPLACE INTO admin_auth (chat_id, pwd_hash,"
+                  " updated_at) VALUES (?, ?, datetime('now'))",
+                  (str(config.ADMIN_CHAT_ID), _pwd_hash(body.new_password)))
+        c.execute("DELETE FROM admin_reset WHERE chat_id = ?",
+                  (str(config.ADMIN_CHAT_ID),))
+        c.commit()
+    finally:
+        c.close()
+    return {"ok": True}
 
 
 # ---------------- calendar + stats (bot logic reuse) ----------------

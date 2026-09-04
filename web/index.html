@@ -14,12 +14,44 @@
 
   <!-- LOGIN -->
   <section id="scr-login" class="screen active">
-    <h1>🎒 Attendance App</h1>
-    <p class="sub">UNIQUE ID <b>ya</b> Roll number — koi ek chalega</p>
-    <input id="in-uid" placeholder="UNIQUE ID (STU-XXXXXXXX) — optional" autocomplete="off">
-    <input id="in-roll" placeholder="Roll number — optional" autocomplete="off">
-    <button id="btn-login" class="primary">Login</button>
-    <p id="login-err" class="err"></p>
+    <div class="logo-tile">🎒</div>
+    <h1>Attendance App</h1>
+    <p class="sub">Student Check-In Portal</p>
+    <div class="login-card">
+      <p class="card-label">UNIQUE ID / ROLL NUMBER</p>
+      <input id="in-uid" placeholder="STU-XXXXXXXX" autocomplete="off">
+      <div class="or-div"><span></span><b>OR</b><span></span></div>
+      <input id="in-roll" placeholder="Roll Number" autocomplete="off">
+      <p class="hint">Koi ek chalega — UNIQUE ID ya Roll</p>
+      <button id="btn-login" class="primary">Login ➜</button>
+      <p id="login-err" class="err"></p>
+
+      <div id="login-pw-block" class="hidden">
+        <p class="card-label">🔒 ADMIN PASSWORD</p>
+        <input id="in-pw" type="password" placeholder="Admin password">
+        <button id="btn-pw-login" class="primary">Admin Login ➜</button>
+        <p class="link" id="link-forgot">Forgot password?</p>
+        <p id="pw-err" class="err"></p>
+      </div>
+
+      <div id="login-set-block" class="hidden">
+        <p class="card-label">🔑 PEHLI BAAR — PASSWORD SET KARO</p>
+        <input id="in-newpw1" type="password" placeholder="Naya password (min 4)">
+        <input id="in-newpw2" type="password" placeholder="Dobara likho">
+        <button id="btn-setpw" class="primary">Set Password ➜</button>
+        <p id="set-err" class="err"></p>
+      </div>
+
+      <div id="login-forgot-block" class="hidden">
+        <p class="card-label">🔑 RESET CODE (Telegram par aayega)</p>
+        <button id="btn-getcode" class="primary">Telegram par code bhejo</button>
+        <input id="in-code" placeholder="6-digit code" inputmode="numeric">
+        <input id="in-resetpw" type="password" placeholder="Naya password (min 4)">
+        <button id="btn-resetpw" class="primary">Reset karo ➜</button>
+        <p id="forgot-msg" class="msg"></p>
+        <p id="forgot-err" class="err"></p>
+      </div>
+    </div>
     <details class="settings">
       <summary>⚙️ Server setting</summary>
       <input id="in-base" placeholder="http://server:8000">

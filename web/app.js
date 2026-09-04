@@ -8,13 +8,20 @@ const S = {
 document.getElementById('in-base').value = S.base;
 
 async function api(path, opts = {}) {
+  const noLogout = !!opts._noLogout; delete opts._noLogout;
   opts.headers = Object.assign({}, opts.headers || {});
   if (S.token) opts.headers['X-Token'] = S.token;
   const r = await fetch(S.base + path, opts);
-  if (r.status === 401) { logout(); throw new Error('Session khatam — dobara login karo'); }
   const ct = r.headers.get('content-type') || '';
   const data = ct.includes('json') ? await r.json() : await r.text();
-  if (!r.ok) throw new Error((data && data.detail) || ('Error ' + r.status));
+  if (!r.ok) {
+    const det = data && data.detail;
+    const err = new Error((det && (det.message || det)) || ('Error ' + r.status));
+    err.code = det && det.code;
+    err.status = r.status;
+    if (r.status === 401 && !noLogout && !err.code) logout();
+    throw err;
+  }
   return data;
 }
 function show(id) {
@@ -35,19 +42,91 @@ document.getElementById('btn-base').onclick = () => {
   localStorage.setItem('api_base', S.base);
   alert('Server saved: ' + S.base);
 };
+const LP = { uid: '', roll: '' };  // login pehchan (steps me reuse)
+function hideLoginBlocks() {
+  ['login-pw-block', 'login-set-block', 'login-forgot-block'].forEach(id =>
+    document.getElementById(id).classList.add('hidden'));
+}
+function enterApp(d) {
+  S.token = d.token; S.profile = d;
+  localStorage.setItem('api_token', d.token);
+  localStorage.setItem('api_profile', JSON.stringify(d));
+  document.getElementById('nav').classList.remove('hidden');
+  document.getElementById('nav-admin').style.display = d.is_admin ? '' : 'none';
+  show('scr-home');
+}
 document.getElementById('btn-login').onclick = async () => {
   const e = document.getElementById('login-err'); e.textContent = '';
+  hideLoginBlocks();
+  LP.uid = document.getElementById('in-uid').value.trim();
+  LP.roll = document.getElementById('in-roll').value.trim();
   try {
-    const d = await api('/login', { method: 'POST',
+    enterApp(await api('/login', { method: 'POST', _noLogout: true,
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ unique_id: document.getElementById('in-uid').value,
-                             roll_no: document.getElementById('in-roll').value }) });
-    S.token = d.token; S.profile = d;
-    localStorage.setItem('api_token', d.token);
-    localStorage.setItem('api_profile', JSON.stringify(d));
-    document.getElementById('nav').classList.remove('hidden');
-    document.getElementById('nav-admin').style.display = d.is_admin ? '' : 'none';
-    show('scr-home');
+      body: JSON.stringify({ unique_id: LP.uid, roll_no: LP.roll }) }));
+  } catch (err) {
+    if (err.code === 'password_not_set') {
+      document.getElementById('login-set-block').classList.remove('hidden');
+      e.textContent = '🔑 ' + err.message;
+    } else if (err.code === 'password_required') {
+      document.getElementById('login-pw-block').classList.remove('hidden');
+      e.textContent = '🔒 Admin hai — password do 👇';
+    } else { e.textContent = '❌ ' + err.message; }
+  }
+};
+document.getElementById('btn-pw-login').onclick = async () => {
+  const e = document.getElementById('pw-err'); e.textContent = '';
+  try {
+    enterApp(await api('/login', { method: 'POST', _noLogout: true,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ unique_id: LP.uid, roll_no: LP.roll,
+                             password: document.getElementById('in-pw').value }) }));
+  } catch (err) { e.textContent = '❌ ' + err.message; }
+};
+document.getElementById('link-forgot').onclick = () => {
+  hideLoginBlocks();
+  document.getElementById('login-forgot-block').classList.remove('hidden');
+};
+document.getElementById('btn-setpw').onclick = async () => {
+  const e = document.getElementById('set-err'); e.textContent = '';
+  const p1 = document.getElementById('in-newpw1').value;
+  const p2 = document.getElementById('in-newpw2').value;
+  if (p1 !== p2) { e.textContent = '❌ Dono password same likho'; return; }
+  try {
+    await api('/admin/set-password', { method: 'POST', _noLogout: true,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ unique_id: LP.uid, roll_no: LP.roll, password: p1 }) });
+    document.getElementById('in-pw').value = p1;
+    hideLoginBlocks();
+    document.getElementById('login-pw-block').classList.remove('hidden');
+    e.textContent = '';
+    document.getElementById('login-err').textContent = '✅ Password set! Ab Admin Login dabao 👇';
+  } catch (err) { e.textContent = '❌ ' + err.message; }
+};
+document.getElementById('btn-getcode').onclick = async () => {
+  const m = document.getElementById('forgot-msg');
+  const e = document.getElementById('forgot-err');
+  m.textContent = ''; e.textContent = '';
+  try {
+    await api('/admin/forgot-password', { method: 'POST', _noLogout: true,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ unique_id: LP.uid, roll_no: LP.roll }) });
+    m.textContent = '✅ Code Telegram par bhej diya! 📩';
+  } catch (err) { e.textContent = '❌ ' + err.message; }
+};
+document.getElementById('btn-resetpw').onclick = async () => {
+  const m = document.getElementById('forgot-msg');
+  const e = document.getElementById('forgot-err');
+  m.textContent = ''; e.textContent = '';
+  try {
+    await api('/admin/reset-password', { method: 'POST', _noLogout: true,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ unique_id: LP.uid, roll_no: LP.roll,
+        code: document.getElementById('in-code').value.trim(),
+        new_password: document.getElementById('in-resetpw').value }) });
+    m.textContent = '✅ Password reset! Ab password se login karo 👇';
+    hideLoginBlocks();
+    document.getElementById('login-pw-block').classList.remove('hidden');
   } catch (err) { e.textContent = '❌ ' + err.message; }
 };
 function logout() {
