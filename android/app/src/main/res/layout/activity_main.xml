@@ -1,0 +1,680 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/bg">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="18dp"
+        android:paddingBottom="90dp">
+
+        <!-- LOGIN -->
+        <LinearLayout
+            android:id="@+id/scrLogin"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:gravity="center_horizontal">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="🎒"
+                android:textSize="56sp"
+                android:layout_marginTop="24dp" />
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Attendance App"
+                android:textSize="26sp"
+                android:textStyle="bold" />
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Student Check-In Portal"
+                android:textColor="@color/mut" />
+
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                app:cardBackgroundColor="@color/white_card"
+                app:cardCornerRadius="20dp"
+                app:cardElevation="8dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="18dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="UNIQUE ID / ROLL NUMBER"
+                        android:textColor="@color/ink"
+                        android:textStyle="bold"
+                        android:textSize="12sp" />
+                    <EditText
+                        android:id="@+id/inUid"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:hint="STU-XXXXXXXX"
+                        android:inputType="text"
+                        android:textColor="@color/ink" />
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="— OR —"
+                        android:gravity="center"
+                        android:textColor="@color/mut" />
+                    <EditText
+                        android:id="@+id/inRoll"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:hint="Roll Number"
+                        android:inputType="text"
+                        android:textColor="@color/ink" />
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Koi ek chalega — UNIQUE ID ya Roll"
+                        android:gravity="center"
+                        android:textColor="@color/mut"
+                        android:textSize="12sp" />
+                    <Button
+                        android:id="@+id/btnLogin"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Login ➜"
+                        style="@style/Btn.Primary" />
+                    <TextView
+                        android:id="@+id/loginErr"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:textColor="@color/red" />
+
+                    <!-- admin password -->
+                    <LinearLayout
+                        android:id="@+id/loginPwBlock"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:visibility="gone">
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="🔒 ADMIN PASSWORD"
+                            android:textColor="@color/ink"
+                            android:textStyle="bold"
+                            android:textSize="12sp" />
+                        <EditText
+                            android:id="@+id/inPw"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:hint="Admin password"
+                            android:inputType="textPassword"
+                            android:textColor="@color/ink" />
+                        <Button
+                            android:id="@+id/btnPwLogin"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="Admin Login ➜"
+                            style="@style/Btn.Primary" />
+                        <TextView
+                            android:id="@+id/linkForgot"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="Forgot password?"
+                            android:gravity="center"
+                            android:textColor="@color/green_d" />
+                        <TextView
+                            android:id="@+id/pwErr"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:textColor="@color/red" />
+                    </LinearLayout>
+
+                    <!-- first-time set -->
+                    <LinearLayout
+                        android:id="@+id/loginSetBlock"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:visibility="gone">
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="🔑 PEHLI BAAR — PASSWORD SET KARO"
+                            android:textColor="@color/ink"
+                            android:textStyle="bold"
+                            android:textSize="12sp" />
+                        <EditText
+                            android:id="@+id/inNewPw1"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:hint="Naya password (min 4)"
+                            android:inputType="textPassword"
+                            android:textColor="@color/ink" />
+                        <EditText
+                            android:id="@+id/inNewPw2"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:hint="Dobara likho"
+                            android:inputType="textPassword"
+                            android:textColor="@color/ink" />
+                        <Button
+                            android:id="@+id/btnSetPw"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="Set Password ➜"
+                            style="@style/Btn.Primary" />
+                        <TextView
+                            android:id="@+id/setErr"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:textColor="@color/red" />
+                    </LinearLayout>
+
+                    <!-- forgot -->
+                    <LinearLayout
+                        android:id="@+id/loginForgotBlock"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:visibility="gone">
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="🔑 RESET CODE (Telegram par aayega)"
+                            android:textColor="@color/ink"
+                            android:textStyle="bold"
+                            android:textSize="12sp" />
+                        <Button
+                            android:id="@+id/btnGetCode"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="Telegram par code bhejo"
+                            style="@style/Btn.Primary" />
+                        <EditText
+                            android:id="@+id/inCode"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:hint="6-digit code"
+                            android:inputType="number"
+                            android:textColor="@color/ink" />
+                        <EditText
+                            android:id="@+id/inResetPw"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:hint="Naya password (min 4)"
+                            android:inputType="textPassword"
+                            android:textColor="@color/ink" />
+                        <Button
+                            android:id="@+id/btnResetPw"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="Reset karo ➜"
+                            style="@style/Btn.Primary" />
+                        <TextView
+                            android:id="@+id/forgotMsg"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:textColor="@color/green_d" />
+                        <TextView
+                            android:id="@+id/forgotErr"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:textColor="@color/red" />
+                    </LinearLayout>
+
+                    <!-- register -->
+                    <TextView
+                        android:id="@+id/linkRegister"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Naya ho? Register karo 📝"
+                        android:gravity="center"
+                        android:textColor="@color/green_d"
+                        android:layout_marginTop="8dp" />
+                    <LinearLayout
+                        android:id="@+id/loginRegBlock"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:visibility="gone">
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="📝 NAYA REGISTRATION"
+                            android:textColor="@color/ink"
+                            android:textStyle="bold"
+                            android:textSize="12sp" />
+                        <EditText
+                            android:id="@+id/inRNaam"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:hint="Apna naam"
+                            android:textColor="@color/ink" />
+                        <EditText
+                            android:id="@+id/inRBranch"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:hint="Branch (CS/IT/EC/ME)"
+                            android:textColor="@color/ink" />
+                        <EditText
+                            android:id="@+id/inRYear"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:hint="Year (1st Year...)"
+                            android:textColor="@color/ink" />
+                        <EditText
+                            android:id="@+id/inRRoll"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:hint="Roll number"
+                            android:textColor="@color/ink" />
+                        <Button
+                            android:id="@+id/btnRegister"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="Register ➜"
+                            style="@style/Btn.Primary" />
+                        <TextView
+                            android:id="@+id/regErr"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:textColor="@color/red" />
+                        <TextView
+                            android:id="@+id/regOk"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:textColor="@color/green_d" />
+                    </LinearLayout>
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <TextView
+                android:id="@+id/txtBase"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="⚙️ Server: tap karke badlo"
+                android:gravity="center"
+                android:textColor="@color/mut"
+                android:layout_marginTop="12dp" />
+        </LinearLayout>
+
+        <!-- HOME -->
+        <LinearLayout
+            android:id="@+id/scrHome"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="gone">
+            <TextView
+                android:id="@+id/homeHi"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="😎 Namaste!"
+                android:textSize="20sp"
+                android:textStyle="bold" />
+            <TextView
+                android:id="@+id/homeDate"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textColor="@color/mut" />
+            <TextView
+                android:id="@+id/homeStatus"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@color/surface"
+                android:padding="14dp" />
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+                <Button
+                    android:id="@+id/btnPresent"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="😎 PRESENT HU"
+                    style="@style/Btn.Primary" />
+                <Button
+                    android:id="@+id/btnChhutti"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="😁 CHHUTTI"
+                    style="@style/Btn.Warn" />
+            </LinearLayout>
+            <Button
+                android:id="@+id/btnMaze"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="🏖️ MAZE KARO AJJ"
+                android:visibility="gone"
+                style="@style/Btn.Warn" />
+            <TextView
+                android:id="@+id/homeMsg"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textColor="@color/green" />
+        </LinearLayout>
+
+        <!-- CALENDAR -->
+        <LinearLayout
+            android:id="@+id/scrCal"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="gone">
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+                <Button
+                    android:id="@+id/calPrev"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="‹" />
+                <TextView
+                    android:id="@+id/calTitle"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="..."
+                    android:gravity="center"
+                    android:textSize="18sp"
+                    android:textStyle="bold" />
+                <Button
+                    android:id="@+id/calNext"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="›" />
+            </LinearLayout>
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="🟢 Present  🔴 Absent  🟡 Holiday  🟠 Chhutti"
+                android:textColor="@color/mut"
+                android:textSize="12sp" />
+            <GridLayout
+                android:id="@+id/calGrid"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:columnCount="7" />
+            <TextView
+                android:id="@+id/dayDetail"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@color/surface"
+                android:padding="12dp"
+                android:visibility="gone" />
+            <Button
+                android:id="@+id/btnProof"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="😈😈 PROOF CHAHIYE KYA 👹👹"
+                android:visibility="gone"
+                style="@style/Btn.Primary" />
+            <ImageView
+                android:id="@+id/proofImg"
+                android:layout_width="match_parent"
+                android:layout_height="200dp"
+                android:visibility="gone"
+                android:scaleType="centerCrop" />
+        </LinearLayout>
+
+        <!-- STATS -->
+        <LinearLayout
+            android:id="@+id/scrStats"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="gone">
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="📊 Meri Attendance"
+                android:textSize="20sp"
+                android:textStyle="bold" />
+            <TextView
+                android:id="@+id/statsPct"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="0%"
+                android:gravity="center"
+                android:textSize="40sp"
+                android:textStyle="bold"
+                android:textColor="@color/green" />
+            <TextView
+                android:id="@+id/statsCards"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content" />
+        </LinearLayout>
+
+        <!-- CHAT -->
+        <LinearLayout
+            android:id="@+id/scrChat"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="gone">
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="💬 Bot Chat"
+                android:textSize="20sp"
+                android:textStyle="bold" />
+            <GridLayout
+                android:id="@+id/chips"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:columnCount="2" />
+            <TextView
+                android:id="@+id/chatBox"
+                android:layout_width="match_parent"
+                android:layout_height="300dp"
+                android:background="@color/surface"
+                android:padding="10dp"
+                android:scrollbars="vertical" />
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+                <EditText
+                    android:id="@+id/inChat"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:hint="0-7 ya DD/MM/YYYY..."
+                    android:textColor="@color/txt" />
+                <Button
+                    android:id="@+id/btnChat"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="➤"
+                    style="@style/Btn.Primary" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- ADMIN -->
+        <LinearLayout
+            android:id="@+id/scrAdmin"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="gone">
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="🛠️ Admin"
+                android:textSize="20sp"
+                android:textStyle="bold" />
+            <Button
+                android:id="@+id/btnCount"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="👥 Students Count"
+                style="@style/Btn.Primary" />
+            <TextView
+                android:id="@+id/countOut"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@color/surface"
+                android:padding="10dp"
+                android:visibility="gone" />
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+                <EditText
+                    android:id="@+id/inLookup"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:hint="Roll / chat id / STU ID"
+                    android:textColor="@color/txt" />
+                <Button
+                    android:id="@+id/btnLookup"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="🔍"
+                    style="@style/Btn.Primary" />
+            </LinearLayout>
+            <TextView
+                android:id="@+id/lookupOut"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@color/surface"
+                android:padding="10dp"
+                android:visibility="gone" />
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="🏖️ Holiday declare" />
+            <EditText
+                android:id="@+id/inHday"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="DD/MM/YYYY"
+                android:textColor="@color/txt" />
+            <EditText
+                android:id="@+id/inHtext"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="Notice text"
+                android:textColor="@color/txt" />
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+                <Button
+                    android:id="@+id/btnPreview"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="👁️ Preview"
+                    style="@style/Btn.Primary" />
+                <Button
+                    android:id="@+id/btnHoliday"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Declare karo"
+                    style="@style/Btn.Warn" />
+            </LinearLayout>
+            <TextView
+                android:id="@+id/previewOut"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@color/surface"
+                android:padding="10dp"
+                android:visibility="gone" />
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="🗑️ Broadcast recall (admin-only)" />
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+                <EditText
+                    android:id="@+id/inRecall"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:hint="DD/MM/YYYY"
+                    android:textColor="@color/txt" />
+                <Button
+                    android:id="@+id/btnRecall"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Recall"
+                    style="@style/Btn.Warn" />
+            </LinearLayout>
+            <TextView
+                android:id="@+id/recallOut"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@color/surface"
+                android:padding="10dp"
+                android:visibility="gone" />
+            <TextView
+                android:id="@+id/adminMsg"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textColor="@color/green" />
+        </LinearLayout>
+
+        <!-- NAV -->
+        <LinearLayout
+            android:id="@+id/navBar"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:visibility="gone">
+            <Button
+                android:id="@+id/navHome"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="🏠" />
+            <Button
+                android:id="@+id/navCal"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="🗓️" />
+            <Button
+                android:id="@+id/navStats"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="📊" />
+            <Button
+                android:id="@+id/navChat"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="💬" />
+            <Button
+                android:id="@+id/navAdmin"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="🛠️" />
+            <Button
+                android:id="@+id/navExit"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="🚪" />
+        </LinearLayout>
+    </LinearLayout>
+</ScrollView>

@@ -10,3 +10,6 @@ run.lockdir/
 api.lockdir/
 *-wal
 *-shm
+android/local.properties
+android/.gradle/
+android/app/build/
