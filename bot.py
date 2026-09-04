@@ -2087,6 +2087,7 @@ def build_app() -> Application:
     app.add_handler(CallbackQueryHandler(on_list_year, pattern="^list_year:"))
     app.add_handler(CallbackQueryHandler(on_list_type, pattern="^list_type:"))
     app.add_handler(CallbackQueryHandler(on_list_back, pattern="^list:back$"))
+    app.add_handler(CallbackQueryHandler(on_nav_back, pattern="^nav:back$"))
     app.add_handler(CallbackQueryHandler(on_home_back, pattern="^home:back$"))
     # Date-step AAJ button conversation ke bahar bhi fire hona chahiye
     app.add_handler(CallbackQueryHandler(on_holiday_date_btn, pattern="^hol:today$"))
