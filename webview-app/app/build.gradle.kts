@@ -11,19 +11,28 @@ android {
         applicationId = "com.attendance.webapp"
         minSdk = 24
         targetSdk = 34
-        versionCode = 1
-        versionName = "1.0"
-        // Default server URL (tunnel badle to app ki setting se badlo)
+        versionCode = 2
+        versionName = "1.1"
+        // Default server URL (stable Worker, tunnel badle bhi same rahega)
         buildConfigField("String", "DEFAULT_BASE_URL",
-            "\"https://bookstore-middle-doe-lanka.trycloudflare.com\"")
+            "\"https://hidden-bush-188f.shivamjislt95288.workers.dev\"")
     }
     buildFeatures {
         buildConfig = true
     }
 
+    signingConfigs {
+        create("release") {
+            storeFile = file("../release.jks")
+            storePassword = "attendance123"
+            keyAlias = "attendance"
+            keyPassword = "attendance123"
+        }
+    }
     buildTypes {
         release {
             isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("release")
         }
     }
     compileOptions {

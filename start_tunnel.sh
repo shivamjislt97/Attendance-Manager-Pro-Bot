@@ -99,7 +99,7 @@ while true; do
         # nahi hon to skip (tunnel independent rahega). Kabhi fail nahi karta.
         if [ -n "$CF_TOKEN" ] && [ -n "$CF_ACCOUNT" ] && [ -n "$CF_WORKER" ]; then
             _WJS="/tmp/worker_target.js"
-            printf 'const TARGET = "%s";\nexport default {\n  async fetch(req) {\n    const url = new URL(req.url);\n    if (url.pathname === "/health" || url.pathname === "/health/") {\n      return new Response(%s, {\n        headers: { "content-type": "application/json" }\n      });\n    }\n    return Response.redirect(TARGET + url.pathname + url.search, 302);\n  }\n}\n' \
+            printf 'const TARGET = "%s";\nexport default {\n  async fetch(req) {\n    const url = new URL(req.url);\n    if (url.pathname === "/health" || url.pathname === "/health/") {\n      return new Response(%s, {\n        headers: { "content-type": "application/json" }\n      });\n    }\n    const targetUrl = TARGET + url.pathname + url.search;\n    return fetch(new Request(targetUrl, {method: req.method, headers: req.headers, body: req.body}));\n  }\n}\n' \
                 "$URL" "'{\"status\":\"ok\"}'" > "$_WJS"
             # Use wrangler for reliable deploy (handles module upload correctly)
             if command -v npx >/dev/null 2>&1; then
