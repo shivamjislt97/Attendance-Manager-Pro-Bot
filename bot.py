@@ -1168,7 +1168,7 @@ async def on_lookup_ask(update: Update, context: ContextTypes.DEFAULT_TYPE):
     HOLIDAY_DATE_WAIT.discard(update.effective_chat.id)
     LOOKUP_WAIT.add(update.effective_chat.id)
     await q.edit_message_text(
-        "🔍 Kisse dhundo Malik APP? Roll number ya chat id bhejiye:" + MSG_EXIT_HINT,
+        "🔍 Kisse dhundo Malik APP? Roll number, chat id ya STU ID bhejiye:" + MSG_EXIT_HINT,
         reply_markup=InlineKeyboardMarkup([exit_kb_row()]),
     )
     return ASK_HOLIDAY_NOTICE  # reuse same wait state
@@ -1182,7 +1182,8 @@ async def on_lookup_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return await on_exit_text(update, context)
     LOOKUP_WAIT.discard(chat_id)
     key = update.message.text.strip()
-    stu = db.get_student(key) or db.get_student_by_roll(key)
+    stu = (db.get_student(key) or db.get_student_by_roll(key)
+           or db.get_student_by_unique_id(key))
     if stu is None:
         LOOKUP_WAIT.add(chat_id)
         await update.message.reply_text(

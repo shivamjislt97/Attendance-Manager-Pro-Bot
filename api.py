@@ -541,7 +541,9 @@ def admin_count(_admin: str = Depends(_require_admin)):
 
 @app.get("/admin/lookup")
 def admin_lookup(key: str, _admin: str = Depends(_require_admin)):
-    stu = db.get_student(key.strip()) or db.get_student_by_roll(key.strip())
+    stu = (db.get_student(key.strip())
+           or db.get_student_by_roll(key.strip())
+           or db.get_student_by_unique_id(key.strip()))
     if stu is None:
         raise HTTPException(status_code=404, detail="Student nahi mila")
     s = stats_mod.compute_stats(stu["chat_id"])
