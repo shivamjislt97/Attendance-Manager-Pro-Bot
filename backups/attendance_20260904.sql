@@ -51,6 +51,21 @@ INSERT INTO attendance VALUES('04/09/2026','5320957474','HOLIDAY','admin-holiday
 INSERT INTO attendance VALUES('10/08/2026','6267031612','HOLIDAY','admin-holiday: holiday declared by admin');
 INSERT INTO attendance VALUES('10/08/2026','8625984731','HOLIDAY','admin-holiday: holiday declared by admin');
 INSERT INTO attendance VALUES('10/08/2026','5320957474','HOLIDAY','admin-holiday: holiday declared by admin');
+INSERT INTO attendance VALUES('17/08/2026','6267031612','HOLIDAY','admin-holiday: holiday declared by admin');
+INSERT INTO attendance VALUES('17/08/2026','8625984731','HOLIDAY','admin-holiday: holiday declared by admin');
+INSERT INTO attendance VALUES('17/08/2026','5320957474','HOLIDAY','admin-holiday: holiday declared by admin');
+INSERT INTO attendance VALUES('22/08/2026','6267031612','HOLIDAY','admin-holiday: holiday declared by admin');
+INSERT INTO attendance VALUES('22/08/2026','8625984731','HOLIDAY','admin-holiday: holiday declared by admin');
+INSERT INTO attendance VALUES('22/08/2026','5320957474','HOLIDAY','admin-holiday: holiday declared by admin');
+INSERT INTO attendance VALUES('24/08/2026','6267031612','HOLIDAY','admin-holiday: holiday declared by admin');
+INSERT INTO attendance VALUES('24/08/2026','8625984731','HOLIDAY','admin-holiday: holiday declared by admin');
+INSERT INTO attendance VALUES('24/08/2026','5320957474','HOLIDAY','admin-holiday: holiday declared by admin');
+INSERT INTO attendance VALUES('26/08/2026','6267031612','HOLIDAY','admin-holiday: holiday declared by admin');
+INSERT INTO attendance VALUES('26/08/2026','8625984731','HOLIDAY','admin-holiday: holiday declared by admin');
+INSERT INTO attendance VALUES('26/08/2026','5320957474','HOLIDAY','admin-holiday: holiday declared by admin');
+INSERT INTO attendance VALUES('28/08/2026','6267031612','HOLIDAY','admin-holiday: holiday declared by admin');
+INSERT INTO attendance VALUES('28/08/2026','8625984731','HOLIDAY','admin-holiday: holiday declared by admin');
+INSERT INTO attendance VALUES('28/08/2026','5320957474','HOLIDAY','admin-holiday: holiday declared by admin');
 CREATE TABLE holiday_notices (
                 date       TEXT PRIMARY KEY,
                 notice     BLOB,
@@ -130,6 +145,21 @@ INSERT INTO broadcast_log VALUES(7,'holiday','04/09/2026','5320957474',219,'2026
 INSERT INTO broadcast_log VALUES(8,'holiday','10/08/2026','6267031612',252,'2026-09-04 08:49:17');
 INSERT INTO broadcast_log VALUES(9,'holiday','10/08/2026','8625984731',253,'2026-09-04 08:49:17');
 INSERT INTO broadcast_log VALUES(10,'holiday','10/08/2026','5320957474',254,'2026-09-04 08:49:17');
+INSERT INTO broadcast_log VALUES(11,'holiday','17/08/2026','6267031612',255,'2026-09-04 08:50:03');
+INSERT INTO broadcast_log VALUES(12,'holiday','17/08/2026','8625984731',256,'2026-09-04 08:50:03');
+INSERT INTO broadcast_log VALUES(13,'holiday','17/08/2026','5320957474',257,'2026-09-04 08:50:03');
+INSERT INTO broadcast_log VALUES(14,'holiday','22/08/2026','6267031612',258,'2026-09-04 08:50:39');
+INSERT INTO broadcast_log VALUES(15,'holiday','22/08/2026','8625984731',259,'2026-09-04 08:50:40');
+INSERT INTO broadcast_log VALUES(16,'holiday','22/08/2026','5320957474',260,'2026-09-04 08:50:40');
+INSERT INTO broadcast_log VALUES(17,'holiday','24/08/2026','6267031612',261,'2026-09-04 08:50:56');
+INSERT INTO broadcast_log VALUES(18,'holiday','24/08/2026','8625984731',262,'2026-09-04 08:50:56');
+INSERT INTO broadcast_log VALUES(19,'holiday','24/08/2026','5320957474',263,'2026-09-04 08:50:57');
+INSERT INTO broadcast_log VALUES(20,'holiday','26/08/2026','6267031612',264,'2026-09-04 08:52:57');
+INSERT INTO broadcast_log VALUES(21,'holiday','26/08/2026','8625984731',265,'2026-09-04 08:52:58');
+INSERT INTO broadcast_log VALUES(22,'holiday','26/08/2026','5320957474',266,'2026-09-04 08:52:58');
+INSERT INTO broadcast_log VALUES(23,'holiday','28/08/2026','6267031612',267,'2026-09-04 08:55:21');
+INSERT INTO broadcast_log VALUES(24,'holiday','28/08/2026','8625984731',268,'2026-09-04 08:55:21');
+INSERT INTO broadcast_log VALUES(25,'holiday','28/08/2026','5320957474',269,'2026-09-04 08:55:21');
 CREATE TABLE recall_log (
                 id         INTEGER PRIMARY KEY AUTOINCREMENT,
                 day        TEXT NOT NULL,
@@ -140,7 +170,7 @@ CREATE TABLE recall_log (
 PRAGMA writable_schema=ON;
 CREATE TABLE IF NOT EXISTS sqlite_sequence(name,seq);
 DELETE FROM sqlite_sequence;
-INSERT INTO sqlite_sequence VALUES('broadcast_log',10);
+INSERT INTO sqlite_sequence VALUES('broadcast_log',25);
 INSERT INTO sqlite_sequence VALUES('recall_log',5);
 CREATE INDEX idx_students_roll
                 ON students(roll_no);
