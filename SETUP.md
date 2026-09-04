@@ -14,10 +14,26 @@ python3 -m pip install -r requirements.txt
 cat > .env << 'EOF'
 BOT_TOKEN="123456789:AAxxxxxxxxxxxxxxxxx"
 GH_PAT="github_pat_xxxxxxxxxxxxxxxxxxxx"
+API_PORT="8000"
 EOF
 chmod 600 .env
-./run.sh
+./run.sh        # Telegram bot
+./start_api.sh  # HTTP API :8000 (Android/web app ke liye)
 ```
+
+## 1b. Autostart (Lightning studio restart par sab wapas)
+
+Teeno services **alag-alag, independent** start hoti hain (ek fail ho to baaki chalte hain):
+
+| Service | Command | Lock | Log |
+|---|---|---|---|
+| Bot | `./run.sh` | `run.lockdir/` | `logs/bot_run.log` |
+| API | `./start_api.sh` | `api.lockdir/` | `logs/api.log` |
+| Tunnel | `./start_tunnel.sh` | `tunnel.lockdir/` | `logs/tunnel.log` |
+
+Studio ke `.lightning_studio/on_start.sh` me teeno hooked hain (bot section pehle se tha; API + tunnel guard add hue) — restart par sab auto-start, kuch haath se nahi karna. Fresh phone link hamesha `logs/current_tunnel.txt` me milti hai (tunnel har restart par nayi URL deta hai).
+
+Tunnel na chahiye to `on_start.sh` ka section-4 hata do (bot/API unaffected).
 
 - `BOT_TOKEN` → @BotFather se (bot ka token).
 - `GH_PAT` → GitHub → Settings → Developer settings → Personal access tokens:
