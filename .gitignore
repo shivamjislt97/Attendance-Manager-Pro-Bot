@@ -21,3 +21,5 @@ webview-app/.gradle/
 webview-app/app/build/
 webview-app/build/
 webview-app/local.properties
+tunnel.lockdir/
+logs/current_tunnel.txt
