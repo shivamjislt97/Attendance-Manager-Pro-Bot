@@ -17,3 +17,7 @@ flutter_app/build/
 flutter_app/.dart_tool/
 flutter_app/.flutter-plugins*
 *.apk
+webview-app/.gradle/
+webview-app/app/build/
+webview-app/build/
+webview-app/local.properties
