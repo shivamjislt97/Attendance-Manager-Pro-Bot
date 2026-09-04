@@ -545,6 +545,39 @@ def holiday_proof(date: str, thumb: int = 0,
     return {"date": date, "proof": raw.decode(errors="replace")}
 
 
+@app.get("/notices")
+def notices(chat_id: str = Depends(_get_chat)):
+    """Home window: latest 5 holiday notices + meri latest 5 activity."""
+    import re
+
+    def _key(d: str):
+        try:
+            return stats_mod._parse_ddmmyyyy(d)
+        except Exception:
+            return date.min
+
+    hols = sorted(db.get_all_holidays(), key=lambda r: _key(r["date"]),
+                  reverse=True)[:5]
+    notices_out = []
+    for h in hols:
+        try:
+            sched = bool(h["notify_day"]) and not h["announced"]
+        except Exception:
+            sched = False
+        notices_out.append({
+            "date": h["date"], "type": h["type"], "has_proof": True,
+            "tag": ("📅 notice " + h["notify_day"] + " ko aayega"
+                    if sched else "🏖️ chhutti thi"),
+        })
+    rows = sorted(db.get_attendance_history(chat_id),
+                  key=lambda r: _key(r["date"]), reverse=True)[:5]
+    emo = {"PRESENT": "✅", "CHHUTTI": "😁", "ABSENT": "🚫", "HOLIDAY": "🏖️"}
+    activity = [{"date": r["date"], "status": r["status"],
+                 "marked_by": r["marked_by"],
+                 "emoji": emo.get(r["status"], "")} for r in rows]
+    return {"notices": notices_out, "activity": activity}
+
+
 # ---------------- chat (bot jaisa — 9 menu + custom date) ----------------
 class ChatIn(BaseModel):
     text: str

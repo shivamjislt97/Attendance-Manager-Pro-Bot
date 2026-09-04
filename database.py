@@ -180,7 +180,7 @@ def get_attendance(chat_id: str, day: str | None = None):
 def get_attendance_history(chat_id: str):
     with _LOCK, _conn() as c:
         return c.execute(
-            "SELECT date, status FROM attendance WHERE chat_id = ?"
+            "SELECT date, status, marked_by FROM attendance WHERE chat_id = ?"
             " ORDER BY date",
             (str(chat_id),),
         ).fetchall()
@@ -254,7 +254,8 @@ def get_due_advance_notices(today: str):
 def get_all_holidays():
     with _LOCK, _conn() as c:
         return c.execute(
-            "SELECT date, type, saved_by FROM holiday_notices ORDER BY date"
+            "SELECT date, type, saved_by, notify_day, announced"
+            " FROM holiday_notices ORDER BY date"
         ).fetchall()
 
 

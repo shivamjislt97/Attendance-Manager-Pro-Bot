@@ -204,7 +204,8 @@ async function loadHome(force) {
   const paint = (r) => { box.textContent =
       r.status ? ('✅ Aaj ka status: ' + r.status) :
       (r.holiday ? '🏖️ AAJ TOH CHHUTTI HAI MOZ KARO 🎉' : '⏰ Aaj ki attendance abhi nahi lagi');
-    const hideMark = !r.status && r.holiday;  // holiday: mark buttons nahi
+    // bot jaisa: holiday (koi bhi status) par mark buttons nahi
+    const hideMark = r.holiday || r.status === 'HOLIDAY';
     document.getElementById('btn-present').style.display = hideMark ? 'none' : '';
     document.getElementById('btn-chhutti').style.display = hideMark ? 'none' : '';
     if (!r.status && r.holiday) {
@@ -226,12 +227,56 @@ async function loadHome(force) {
       };
       box.appendChild(document.createElement('br')); box.appendChild(mb);
     } };
-  if (!force && C[key]) { paint(C[key]); return; }
+  if (!force && C[key]) { paint(C[key]); loadNotices(false); return; }
   box.innerHTML = '<div class="skel" style="height:44px"></div>';
   try {
     const r = await api('/record?date=' + encodeURIComponent(todayStr()));
-    C[key] = r; paint(r);
+    C[key] = r; paint(r); loadNotices(false);
   } catch (e) { box.textContent = '❌ ' + e.message; }
+}
+async function loadNotices(force) {
+  const nl = document.getElementById('notices-list');
+  const al = document.getElementById('activity-list');
+  if (!force && C.notices) { paintNotices(C.notices); return; }
+  try {
+    const r = await api('/notices');
+    C.notices = r; paintNotices(r);
+  } catch (e) {
+    nl.textContent = '❌ ' + e.message; al.textContent = '';
+  }
+}
+function paintNotices(r) {
+  const nl = document.getElementById('notices-list');
+  const al = document.getElementById('activity-list');
+  nl.innerHTML = '';
+  (r.notices || []).forEach(n => {
+    const d = document.createElement('div');
+    d.textContent = '🏖️ ' + n.date + ' — ' + n.tag;
+    d.style.cssText = 'padding:6px 0;border-bottom:1px solid var(--line);cursor:pointer';
+    d.onclick = async () => {
+      try {
+        const pr = await fetch(S.base + '/holiday-proof?date=' + encodeURIComponent(n.date) + '&thumb=1',
+                               { headers: { 'X-Token': S.token } });
+        if ((pr.headers.get('content-type') || '').includes('image')) {
+          const url = URL.createObjectURL(await pr.blob());
+          nl.innerHTML += '<br><img src="' + url + '" style="max-width:100%;border-radius:8px">';
+        } else {
+          const j = await pr.json();
+          d.textContent += '\n📝 Proof: ' + j.proof;
+        }
+      } catch (e) { d.textContent += ' (❌ proof nahi khula)'; }
+    };
+    nl.appendChild(d);
+  });
+  if (!(r.notices || []).length) nl.textContent = '(koi notice nahi)';
+  al.innerHTML = '';
+  (r.activity || []).forEach(a => {
+    const d = document.createElement('div');
+    d.textContent = (a.emoji || '•') + ' ' + a.date + ' — ' + a.status;
+    d.style.cssText = 'padding:6px 0;border-bottom:1px solid var(--line)';
+    al.appendChild(d);
+  });
+  if (!(r.activity || []).length) al.textContent = '(koi record nahi)';
 }
 async function markIt(status) {
   const m = document.getElementById('home-msg');
