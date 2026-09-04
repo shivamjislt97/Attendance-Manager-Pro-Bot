@@ -646,6 +646,10 @@ async def admin_holiday(date: str = Form(...), proof_text: str = Form(""),
         b = Bot(token=config.BOT_TOKEN)
         ok, fail = await bot_mod.broadcast_holiday(
             date, ntype, raw, ptext, SimpleNamespace(bot=b))
+        import logging as _lg
+        _lg.getLogger("attendance-api").info(
+            "holiday declare %s type=%s updated=%d broadcast_ok=%d fail=%d",
+            date, ntype, n_upd, ok, fail)
     except Exception as e:
         import logging
         logging.getLogger("attendance-api").warning("broadcast fail: %s", e)

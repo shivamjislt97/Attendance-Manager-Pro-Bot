@@ -438,7 +438,10 @@ document.getElementById('btn-recall').onclick = async () => {
 async function holidaySubmit(dry) {
   const m = document.getElementById('admin-msg');
   const box = document.getElementById('preview-out');
+  const bPrev = document.getElementById('btn-preview');
+  const bDec = document.getElementById('btn-holiday');
   m.textContent = '';
+  bPrev.disabled = true; bDec.disabled = true;
   try {
     const fd = new FormData();
     fd.append('date', document.getElementById('in-hday').value.trim());
@@ -455,10 +458,13 @@ async function holidaySubmit(dry) {
       return;
     }
     box.classList.add('hidden');
-    m.textContent = '🏖️ Holiday declare! ' + j.date + ' | ' + j.updated +
-                    ' entries | broadcast ' + j.broadcast_ok + '/' + j.broadcast_fail;
+    m.textContent = '🏖️ Holiday declare! 📅 ' + j.date + '\n' +
+      '📎 Proof file: 1 (' + j.type + ')\n' +
+      '👥 ' + j.updated + ' entries HOLIDAY me update\n' +
+      '📢 ' + j.broadcast_ok + ' users ko bheja, ' + j.broadcast_fail + ' fail';
     cacheClear();
   } catch (e) { m.textContent = '❌ ' + e.message; }
+  finally { bPrev.disabled = false; bDec.disabled = false; }
 }
 document.getElementById('btn-preview').onclick = () => holidaySubmit(true);
 document.getElementById('btn-holiday').onclick = () => holidaySubmit(false);
