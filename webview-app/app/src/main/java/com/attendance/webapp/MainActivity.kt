@@ -42,22 +42,55 @@ class MainActivity : AppCompatActivity() {
         fileCb = null
     }
 
+    private lateinit var loaderBox: LinearLayout
+    private val loaderHandler = android.os.Handler(android.os.Looper.getMainLooper())
+    private val loaderTimeout = Runnable { hideLoader() }
+
     private fun baseUrl(): String {
         val p = getSharedPreferences("app", Context.MODE_PRIVATE)
         return p.getString("base", BuildConfig.DEFAULT_BASE_URL)
             ?: BuildConfig.DEFAULT_BASE_URL
     }
 
+    private fun showLoader() {
+        loaderBox.visibility = View.VISIBLE
+        loaderHandler.removeCallbacks(loaderTimeout)
+        loaderHandler.postDelayed(loaderTimeout, 15000)
+    }
+
+    private fun hideLoader() {
+        loaderHandler.removeCallbacks(loaderTimeout)
+        if (::loaderBox.isInitialized) loaderBox.visibility = View.GONE
+    }
+
     private fun loadHome() {
         offlineBox.visibility = View.GONE
+        showLoader()
+        // warm-up: connection ready rakho
+        Thread { tryHttpHead(baseUrl().trimEnd('/') + "/health") }.start()
         web.loadUrl(baseUrl().trimEnd('/') + "/app/")
     }
 
+    private fun tryHttpHead(url: String) {
+        try {
+            (java.net.URL(url).openConnection() as java.net.HttpURLConnection).apply {
+                requestMethod = "HEAD"
+                connectTimeout = 8000
+                readTimeout = 8000
+                responseCode
+                disconnect()
+            }
+        } catch (_: Exception) {
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
+        setTheme(R.style.Theme_WebApp)
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
         web = findViewById(R.id.web)
         offlineBox = findViewById(R.id.offlineBox)
+        loaderBox = findViewById(R.id.loaderBox)
 
         web.settings.apply {
             javaScriptEnabled = true
@@ -67,6 +100,14 @@ class MainActivity : AppCompatActivity() {
             useWideViewPort = true
         }
         web.webViewClient = object : WebViewClient() {
+            override fun onPageStarted(view: WebView, url: String, favicon: android.graphics.Bitmap?) {
+                showLoader()
+            }
+
+            override fun onPageFinished(view: WebView, url: String) {
+                hideLoader()
+            }
+
             override fun onReceivedError(
                 view: WebView, request: WebResourceRequest, error: WebResourceError
             ) {

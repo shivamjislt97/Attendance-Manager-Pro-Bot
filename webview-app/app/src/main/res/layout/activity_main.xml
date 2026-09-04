@@ -10,6 +10,39 @@
         android:layout_height="match_parent" />
 
     <LinearLayout
+        android:id="@+id/loaderBox"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:gravity="center"
+        android:orientation="vertical"
+        android:background="#0B1C30"
+        android:padding="32dp">
+
+        <ImageView
+            android:layout_width="96dp"
+            android:layout_height="96dp"
+            android:src="@mipmap/ic_launcher" />
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Attendance App"
+            android:textColor="#EAF1FF"
+            android:textSize="22sp"
+            android:textStyle="bold"
+            android:layout_marginTop="12dp" />
+        <ProgressBar
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp" />
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Loading... ⏳"
+            android:textColor="#8FA3C0"
+            android:layout_marginTop="8dp" />
+    </LinearLayout>
+
+    <LinearLayout
         android:id="@+id/offlineBox"
         android:layout_width="match_parent"
         android:layout_height="match_parent"

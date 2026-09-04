@@ -1,5 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <style name="Theme.WebApp.Launcher" parent="Theme.AppCompat.NoActionBar">
+        <item name="android:windowBackground">@drawable/launch_background</item>
+        <item name="android:statusBarColor">#0B1C30</item>
+    </style>
     <style name="Theme.WebApp" parent="Theme.AppCompat.NoActionBar">
         <item name="android:windowBackground">#0B1C30</item>
         <item name="android:statusBarColor">#0B1C30</item>

@@ -10,6 +10,7 @@
         android:allowBackup="false">
         <activity
             android:name=".MainActivity"
+            android:theme="@style/Theme.WebApp.Launcher"
             android:exported="true"
             android:configChanges="orientation|screenSize|keyboardHidden">
             <intent-filter>
