@@ -10,7 +10,7 @@ class Api {
   static Map<String, dynamic>? profile;
 
   static const _defaultBase =
-      'https://bookstore-middle-doe-lanka.trycloudflare.com';
+      'https://hidden-bush-188f.shivamjislt95288.workers.dev';
 
   static Future<void> loadSaved() async {
     final p = await SharedPreferences.getInstance();

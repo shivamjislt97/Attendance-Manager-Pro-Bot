@@ -94,6 +94,25 @@ while true; do
     if [ -n "$URL" ]; then
         echo "$URL" > "$URL_FILE"
         echo "[$(date '+%F %T')] tunnel UP: $URL (pid $TUN_PID)"
+        # ---- 4) Worker TARGET auto-update (stable link fresh rakho) ----
+        # CF_TOKEN + CF_ACCOUNT + CF_WORKER .env me hon to hi chalega,
+        # nahi hon to skip (tunnel independent rahega). Kabhi fail nahi karta.
+        if [ -n "$CF_TOKEN" ] && [ -n "$CF_ACCOUNT" ] && [ -n "$CF_WORKER" ]; then
+            _WJS="/tmp/worker_target.js"
+            printf 'const TARGET = "%s";\nexport default {\n  async fetch(req) {\n    const url = new URL(req.url);\n    if (url.pathname === "/health" || url.pathname === "/health/") {\n      return new Response(%s, {\n        headers: { "content-type": "application/json" }\n      });\n    }\n    return Response.redirect(TARGET + url.pathname + url.search, 302);\n  }\n}\n' \
+                "$URL" "'{\"status\":\"ok\"}'" > "$_WJS"
+            if curl -s -m 60 -X PUT \
+                -H "Authorization: Bearer $CF_TOKEN" \
+                -F 'metadata={"main_module":"worker.js"};type=application/json' \
+                -F "worker.js=@$_WJS;type=application/javascript" \
+                "https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT/workers/scripts/$CF_WORKER" \
+                | grep -q '"success":true'; then
+                echo "[$(date '+%F %T')] worker TARGET updated: $URL"
+            else
+                echo "[$(date '+%F %T')] worker update skip/fail — tunnel waise hi live. (warn only)" >&2
+            fi
+            rm -f "$_WJS"
+        fi
     else
         echo "[$(date '+%F %T')] tunnel URL nahi mila — 10s me retry..." >&2
         kill "$TUN_PID" 2>/dev/null
