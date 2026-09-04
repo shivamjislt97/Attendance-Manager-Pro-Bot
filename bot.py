@@ -232,6 +232,66 @@ async def broadcast_holiday(day: str, ntype: str, raw: bytes,
     return ok, fail
 
 
+async def broadcast_custom(text: str, photo: bytes | None,
+                           recipients: list, bot,
+                           batch: str) -> tuple[int, int]:
+    """General admin broadcast (filtered users) + ID logging (recall ke liye).
+
+    text: message (pehle se final), photo: JPEG bytes ya None.
+    Returns (ok, fail).
+    """
+    from telegram import InputFile as _IF
+    ok, fail = 0, 0
+    day = today_str()
+    for stu in recipients:
+        cid = stu["chat_id"]
+        try:
+            if photo:
+                sent = await bot.send_photo(
+                    chat_id=int(cid),
+                    photo=_IF(io.BytesIO(photo), filename="broadcast.jpg"),
+                    caption=text[:900],
+                )
+            else:
+                sent = await bot.send_message(chat_id=int(cid), text=text)
+            mid = getattr(sent, "message_id", None)
+            if mid is not None:
+                db.log_broadcast("general", day, cid, mid, batch=batch)
+            ok += 1
+        except Exception as e:
+            log.warning("custom broadcast fail %s: %s", cid, e)
+            fail += 1
+    return ok, fail
+
+
+async def recall_broadcast_batch(batch: str, bot) -> tuple[int, int]:
+    """General broadcast batch recall (same cooldown/audit rules)."""
+    import time as _time
+    key = "batch:" + batch
+    now = _time.time()
+    if now - _RECALL_LAST.get(key, 0) < RECALL_COOLDOWN_SEC:
+        return (-1, -1)
+    if sum(1 for _ in db.get_recall_log(key)) >= RECALL_MAX_TRIES:
+        return (-2, -2)
+    _RECALL_LAST[key] = now
+    rows = db.get_broadcast_batch(batch)
+    if not rows:
+        return (0, 0)
+    deleted, failed = 0, 0
+    for r in rows:
+        try:
+            await bot.delete_message(chat_id=int(r["chat_id"]),
+                                     message_id=int(r["message_id"]))
+            deleted += 1
+        except Exception as e:
+            log.warning("batch recall fail %s/%s: %s",
+                        r["chat_id"], r["message_id"], e)
+            failed += 1
+    db.log_recall(key, deleted, failed)
+    db.clear_broadcast_batch(batch)
+    return deleted, failed
+
+
 RECALL_COOLDOWN_SEC = 60
 RECALL_MAX_TRIES = 3
 _RECALL_LAST: dict[str, float] = {}

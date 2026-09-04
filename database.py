@@ -91,6 +91,10 @@ def init_db() -> None:
             c.execute("ALTER TABLE holiday_notices ADD COLUMN notify_day TEXT")
         if "announced" not in hcols:
             c.execute("ALTER TABLE holiday_notices ADD COLUMN announced INTEGER NOT NULL DEFAULT 0")
+        # Migration: broadcast batch column (general broadcast recall)
+        bcols = {r["name"] for r in c.execute("PRAGMA table_info(broadcast_log)")}
+        if "batch" not in bcols:
+            c.execute("ALTER TABLE broadcast_log ADD COLUMN batch TEXT")
 
 
 # ---------------- students ----------------
@@ -265,13 +269,14 @@ def is_holiday(day: str) -> bool:
 
 # ---------------- broadcast log + recall audit ----------------
 
-def log_broadcast(kind: str, day: str, chat_id: str, message_id: int) -> None:
+def log_broadcast(kind: str, day: str, chat_id: str, message_id: int,
+                  batch: str | None = None) -> None:
     """Broadcast message ID save karo (48h recall window ke liye)."""
     with _LOCK, _conn() as c:
         c.execute(
-            "INSERT INTO broadcast_log (kind, day, chat_id, message_id)"
-            " VALUES (?, ?, ?, ?)",
-            (kind, day, str(chat_id), int(message_id)),
+            "INSERT INTO broadcast_log (kind, day, chat_id, message_id, batch)"
+            " VALUES (?, ?, ?, ?, ?)",
+            (kind, day, str(chat_id), int(message_id), batch),
         )
 
 
@@ -288,6 +293,31 @@ def clear_broadcast_log(kind: str, day: str) -> None:
     with _LOCK, _conn() as c:
         c.execute("DELETE FROM broadcast_log WHERE kind = ? AND day = ?",
                   (kind, day))
+
+
+def get_broadcast_batch(batch: str):
+    with _LOCK, _conn() as c:
+        return c.execute(
+            "SELECT chat_id, message_id FROM broadcast_log"
+            " WHERE batch = ? ORDER BY id",
+            (batch,),
+        ).fetchall()
+
+
+def clear_broadcast_batch(batch: str) -> None:
+    with _LOCK, _conn() as c:
+        c.execute("DELETE FROM broadcast_log WHERE batch = ?", (batch,))
+
+
+def list_broadcast_batches(limit: int = 10):
+    """Recent general batches: batch, day, count (recall list ke liye)."""
+    with _LOCK, _conn() as c:
+        return c.execute(
+            "SELECT batch, day, COUNT(*) AS n, MAX(sent_at) AS at"
+            " FROM broadcast_log WHERE kind = 'general' AND batch IS NOT NULL"
+            " GROUP BY batch, day ORDER BY MAX(id) DESC LIMIT ?",
+            (limit,),
+        ).fetchall()
 
 
 def log_recall(day: str, deleted: int, failed: int) -> None:

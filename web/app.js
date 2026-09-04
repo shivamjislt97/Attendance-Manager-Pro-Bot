@@ -49,6 +49,7 @@ function show(id) {
   if (id === 'scr-cal') loadCal();
   if (id === 'scr-stats') loadStats();
   if (id === 'scr-home') loadHome();
+  if (id === 'scr-admin' && S.profile && S.profile.is_admin) loadBatches();
 }
 document.querySelectorAll('#nav button[data-scr]').forEach(b =>
   b.addEventListener('click', () => show(b.dataset.scr)));
@@ -477,9 +478,75 @@ document.getElementById('btn-recall').onclick = async () => {
     const r = await api('/admin/recall', { method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ date: day }) });
-    box.textContent = '🗑️ Recall complete (' + r.date + ')!\n✅ Deleted: ' + r.deleted + ' | ❌ Failed: ' + r.failed;
+    if (r.schedule_cancelled) {
+      box.textContent = '📅 Schedule cancel ho gaya (' + r.date + ')!';
+    } else {
+      box.textContent = '🗑️ Recall complete (' + r.date + ')!\n✅ Deleted: ' + r.deleted + ' | ❌ Failed: ' + r.failed;
+    }
+    loadBatches();
   } catch (e) { box.textContent = '❌ ' + e.message; }
 };
+async function bcastSubmit(dry) {
+  const box = document.getElementById('bcast-out');
+  box.classList.remove('hidden');
+  box.textContent = '...';
+  try {
+    const fd = new FormData();
+    fd.append('message', document.getElementById('in-bmsg').value.trim());
+    let br = document.getElementById('in-bbranch').value.trim().toUpperCase();
+    if (br === 'ALL') br = '';
+    fd.append('branch', br);
+    let yr = document.getElementById('in-byear').value.trim();
+    if (/^all$/i.test(yr)) yr = '';
+    fd.append('year', yr);
+    const f = document.getElementById('in-bphoto').files[0];
+    if (f) fd.append('photo', f);
+    const r = await fetch(S.base + '/admin/broadcast?dry_run=' + (dry ? 'true' : 'false'),
+      { method: 'POST', headers: { 'X-Token': S.token }, body: fd });
+    const j = await r.json();
+    if (!r.ok) throw new Error((j.detail && (j.detail.message || j.detail)) || 'Error');
+    if (dry) {
+      box.textContent = '👁️ Preview (' + j.recipients + ' users ko jayega):\n\n' + j.preview +
+        '\n\nTo: ' + (j.to || []).join(', ');
+    } else {
+      box.textContent = '📢 Broadcast ho gaya!\n👥 ' + j.recipients + ' target | ✅ ' +
+        j.sent + ' bheja, ❌ ' + j.failed + ' fail\nBatch: ' + j.batch;
+      loadBatches();
+    }
+  } catch (e) { box.textContent = '❌ ' + e.message; }
+}
+document.getElementById('btn-bpreview').onclick = () => bcastSubmit(true);
+document.getElementById('btn-bsend').onclick = () => bcastSubmit(false);
+async function loadBatches() {
+  const box = document.getElementById('bcast-list');
+  try {
+    const r = await api('/admin/broadcasts');
+    if (!(r.batches || []).length) { box.classList.add('hidden'); return; }
+    box.classList.remove('hidden');
+    box.innerHTML = '';
+    r.batches.forEach(b => {
+      const d = document.createElement('div');
+      d.textContent = '📢 ' + b.day + ' → ' + b.count + ' msgs (' + b.batch + ')';
+      d.style.cssText = 'padding:6px 0;border-bottom:1px solid var(--line);cursor:pointer';
+      d.onclick = async () => {
+        if (box.dataset.armed !== b.batch) {
+          box.dataset.armed = b.batch;
+          d.textContent += ' — ⚠️ Pakka? dobara dabao!';
+          return;
+        }
+        box.dataset.armed = '';
+        try {
+          const r2 = await api('/admin/recall', { method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ date: '', batch: b.batch }) });
+          d.textContent = '🗑️ Deleted: ' + r2.deleted + ' | Failed: ' + r2.failed;
+          loadBatches();
+        } catch (e) { d.textContent += ' (❌ ' + e.message + ')'; }
+      };
+      box.appendChild(d);
+    });
+  } catch (e) { /* admin hi dekhega; chupchaap ignore */ }
+}
 async function holidaySubmit(dry) {
   const m = document.getElementById('admin-msg');
   const box = document.getElementById('preview-out');

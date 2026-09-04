@@ -710,27 +710,98 @@ async def admin_holiday(date: str = Form(...), proof_text: str = Form(""),
 
 class RecallIn(BaseModel):
     date: str
+    batch: Optional[str] = None
 
 
-@app.post("/admin/recall")
-async def admin_recall(body: RecallIn,
-                       _admin: str = Depends(_require_admin)):
-    """Holiday broadcast recall (admin-only, 48h window)."""
-    import re
-    if not re.match(r"^\d{2}/\d{2}/\d{4}$", (body.date or "").strip()):
-        raise HTTPException(status_code=400, detail="DD/MM/YYYY bhejo")
-    import bot as bot_mod
-    from telegram import Bot
-    deleted, failed = await bot_mod.recall_holiday_broadcast(
-        body.date.strip(), Bot(token=config.BOT_TOKEN))
+def _recall_report(deleted: int, failed: int):
     if (deleted, failed) == (-1, -1):
         raise HTTPException(status_code=429, detail={
             "code": "cooldown", "message": "60 sec rukkar dobara try karo"})
     if (deleted, failed) == (-2, -2):
         raise HTTPException(status_code=403, detail={
             "code": "exhausted", "message": "Attempts khatam (max 3)"})
+    return deleted, failed
+
+
+@app.post("/admin/recall")
+async def admin_recall(body: RecallIn,
+                       _admin: str = Depends(_require_admin)):
+    """Holiday (date) ya general (batch) broadcast recall — admin-only."""
+    import bot as bot_mod
+    from telegram import Bot
+    b = Bot(token=config.BOT_TOKEN)
+    if body.batch:
+        if not __import__("re").match(r"^g\d{14}$", body.batch.strip()):
+            raise HTTPException(status_code=400, detail="Batch id galat")
+        deleted, failed = await bot_mod.recall_broadcast_batch(
+            body.batch.strip(), b)
+        _recall_report(deleted, failed)
+        return {"ok": True, "batch": body.batch.strip(),
+                "deleted": deleted, "failed": failed}
+    import re
+    if not re.match(r"^\d{2}/\d{2}/\d{4}$", (body.date or "").strip()):
+        raise HTTPException(status_code=400, detail="DD/MM/YYYY bhejo")
+    deleted, failed = await bot_mod.recall_holiday_broadcast(
+        body.date.strip(), b)
     if (deleted, failed) == (-3, -3):
         return {"ok": True, "date": body.date.strip(),
                 "schedule_cancelled": True, "deleted": 0, "failed": 0}
+    _recall_report(deleted, failed)
     return {"ok": True, "date": body.date.strip(),
             "deleted": deleted, "failed": failed}
+
+
+@app.get("/admin/broadcasts")
+def admin_broadcasts(_admin: str = Depends(_require_admin)):
+    """Recent general batches (recall list ke liye)."""
+    rows = db.list_broadcast_batches(10)
+    return {"batches": [
+        {"batch": r["batch"], "day": r["day"], "count": r["n"],
+         "at": r["at"]} for r in rows]}
+
+
+@app.post("/admin/broadcast")
+async def admin_broadcast(message: str = Form(""),
+                          branch: str = Form(""),
+                          year: str = Form(""),
+                          photo: Optional[UploadFile] = File(None),
+                          dry_run: bool = False,
+                          _admin: str = Depends(_require_admin)):
+    """General broadcast (filtered, admin-only). Text required, photo optional."""
+    import bot as bot_mod
+    text = (message or "").strip()
+    if not text:
+        raise HTTPException(status_code=400, detail="Message likho")
+    if len(text) > 1500:
+        raise HTTPException(status_code=400, detail="Message 1500 chars max")
+    branch = (branch or "").strip().upper()
+    year = (year or "").strip()
+    if branch and branch not in ("CS", "IT", "EC", "ME"):
+        raise HTTPException(status_code=400, detail="Branch CS/IT/EC/ME ya khaali")
+    if year and year not in ("1st Year", "2nd Year", "3rd Year", "4th Year"):
+        raise HTTPException(status_code=400, detail="Year 1st-4th ya khaali")
+    rows = [r for r in db.get_all_students()
+            if (not branch or (r["branch"] or "-") == branch)
+            and (not year or (r["year"] or "-") == year)]
+    full = "📢 " + text
+    if dry_run:
+        return {"ok": True, "dry_run": True, "recipients": len(rows),
+                "to": [r["naam"] for r in rows],
+                "preview": full + (" [+photo]" if photo is not None else "")}
+    import time as _time
+    batch = "g" + _time.strftime("%Y%m%d%H%M%S", _time.gmtime())
+    raw = await photo.read() if photo is not None else None
+    if raw is not None and len(raw) > 5 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="Photo 5MB max")
+    from telegram import Bot
+    ok, fail = await bot_mod.broadcast_custom(
+        full, raw, rows, Bot(token=config.BOT_TOKEN), batch)
+    import logging as _lg
+    _lg.getLogger("attendance-api").info(
+        "general broadcast %s to=%d ok=%d fail=%d", batch, len(rows), ok, fail)
+    try:
+        bot_mod.queue_backup_push("broadcast-app")
+    except Exception:
+        pass
+    return {"ok": True, "batch": batch, "recipients": len(rows),
+            "sent": ok, "failed": fail}
