@@ -368,6 +368,24 @@ document.getElementById('btn-lookup').onclick = async () => {
       r.stats.present + '/' + r.stats.college_open + ')';
   } catch (e) { box.textContent = '❌ ' + e.message; }
 };
+document.getElementById('btn-recall').onclick = async () => {
+  const box = document.getElementById('recall-out');
+  const day = document.getElementById('in-recall').value.trim();
+  box.classList.remove('hidden');
+  if (box.dataset.armed !== day) {
+    box.dataset.armed = day;
+    box.textContent = '⚠️ Pakka? ' + (day || '?') + ' ka broadcast users ke paas se delete hoga (48h window). Confirm ke liye dobara dabao.';
+    return;
+  }
+  box.dataset.armed = '';
+  box.textContent = '...';
+  try {
+    const r = await api('/admin/recall', { method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ date: day }) });
+    box.textContent = '🗑️ Recall complete (' + r.date + ')!\n✅ Deleted: ' + r.deleted + ' | ❌ Failed: ' + r.failed;
+  } catch (e) { box.textContent = '❌ ' + e.message; }
+};
 document.getElementById('btn-holiday').onclick = async () => {
   const m = document.getElementById('admin-msg'); m.textContent = '';
   try {

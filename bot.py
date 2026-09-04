@@ -55,6 +55,10 @@ BTN_MENU = "📋 MENU KHOLO"
 CB_MENU_OPEN = "menu:open"
 BTN_KNOW = "🆔 KNOW STU ID"
 CB_KNOW = "know:stuid"
+BTN_RECALL = "🗑️ Broadcast delete karo"
+CB_RECALL_PREFIX = "recall:"
+BTN_RECALL_YES = "✅ Haan, delete karo"
+BTN_RECALL_NO = "❌ Rehne do"
 BTN_MAZE = "🏖️ MAZE KARO AJJ"
 CB_FUN = "fun:mozkaro"
 BTN_EXIT = "❌ EXIT"
@@ -194,25 +198,64 @@ async def broadcast_holiday(day: str, ntype: str, raw: bytes,
     for stu in db.get_all_students():
         cid = stu["chat_id"]
         try:
+            mid = None
             if ntype == "image":
                 cap = base + (f"\n📝 {proof_text[:900]}" if proof_text else "")
-                await context.bot.send_photo(
+                sent = await context.bot.send_photo(
                     chat_id=int(cid),
                     photo=InputFile(io.BytesIO(raw), filename="holiday.jpg"),
                     caption=cap,
                 )
+                mid = getattr(sent, "message_id", None)
             else:
                 txt = base
                 try:
                     txt += "\n📝 Proof: " + raw.decode(errors="replace")[:1500]
                 except Exception:
                     pass
-                await context.bot.send_message(chat_id=int(cid), text=txt)
+                sent = await context.bot.send_message(chat_id=int(cid), text=txt)
+                mid = getattr(sent, "message_id", None)
+            if mid is not None:
+                db.log_broadcast("holiday", day, cid, mid)
             ok += 1
         except Exception as e:
             log.warning("holiday broadcast fail %s: %s", cid, e)
             fail += 1
     return ok, fail
+
+
+RECALL_COOLDOWN_SEC = 60
+RECALL_MAX_TRIES = 3
+_RECALL_LAST: dict[str, float] = {}
+
+
+async def recall_holiday_broadcast(day: str, bot) -> tuple[int, int]:
+    """Holiday broadcast recall karo (48h window, admin-only callers).
+
+    Har logged message par deleteMessage. Returns (deleted, failed).
+    Attempt audit log me likha jata hai.
+    """
+    import time as _time
+    now = _time.time()
+    if now - _RECALL_LAST.get(day, 0) < RECALL_COOLDOWN_SEC:
+        return (-1, -1)  # cooldown — caller report banaye
+    if sum(1 for _ in db.get_recall_log(day)) >= RECALL_MAX_TRIES:
+        return (-2, -2)  # attempts khatam
+    _RECALL_LAST[day] = now
+    rows = db.get_broadcast_log("holiday", day)
+    deleted, failed = 0, 0
+    for r in rows:
+        try:
+            await bot.delete_message(chat_id=int(r["chat_id"]),
+                                     message_id=int(r["message_id"]))
+            deleted += 1
+        except Exception as e:
+            log.warning("recall fail %s/%s: %s",
+                        r["chat_id"], r["message_id"], e)
+            failed += 1
+    db.log_recall(day, deleted, failed)
+    db.clear_broadcast_log("holiday", day)
+    return deleted, failed
 
 
 def mark_holiday_attendance(day: str) -> int:
@@ -1153,9 +1196,58 @@ async def on_holiday_notice(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"📢 Broadcast ho gaya! ✅ {ok} ko bheja, ❌ {fail} fail.\n"
         "Ye holiday data se hi sabki attendance calculate hogi — "
         "us din kisi ko bewajah chhutti/absent nahi lagegi. 🎯",
-        reply_markup=admin_daily_kb())
+        reply_markup=InlineKeyboardMarkup(
+            [[InlineKeyboardButton(BTN_RECALL,
+                                   callback_data=CB_RECALL_PREFIX + day)],
+             [InlineKeyboardButton(BTN_MENU, callback_data=CB_MENU_OPEN)]]))
     queue_backup_push("holiday")
     return ConversationHandler.END
+
+
+# ---------------- RECALL (admin-only, double-confirm) ----------------
+def _recall_report(day: str, deleted: int, failed: int) -> str:
+    if (deleted, failed) == (-1, -1):
+        return ("⏳ Abhi-abi recall hua tha — 60 sec rukkar dobara dabao.")
+    if (deleted, failed) == (-2, -2):
+        return "⛔ Is date ke attempts khatam (max 3). Ab recall nahi hoga."
+    return (f"🗑️ Recall complete ({day})!\n"
+            f"✅ Deleted: {deleted} | ❌ Failed: {failed}\n"
+            "(Failed = 48h over / user ne pehle delete kiya)")
+
+
+async def on_recall_btn(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """[🗑️ Broadcast delete karo] — sirf admin, double-confirm ke saath."""
+    q = update.callback_query
+    await q.answer()
+    if not is_admin(update):
+        try:
+            await q.edit_message_text("⛔ Ye sirf admin ke liye hai. 😊")
+        except Exception:
+            pass
+        log.warning("recall blocked non-admin %s", update.effective_chat.id)
+        return
+    parts = (q.data or "").split(":", 2)
+    if len(parts) < 2 or not re.match(r"^\d{2}/\d{2}/\d{4}$", parts[1]):
+        await q.edit_message_text("❌ Galat request.")
+        return
+    day = parts[1]
+    if len(parts) == 3 and parts[2] == "yes":
+        deleted, failed = await recall_holiday_broadcast(day, context.bot)
+        await q.edit_message_text(_recall_report(day, deleted, failed))
+        return
+    if len(parts) == 3 and parts[2] == "no":
+        await q.edit_message_text("✅ Theek hai, broadcast rehne diya.")
+        return
+    n_left = len(db.get_broadcast_log("holiday", day))
+    await q.edit_message_text(
+        f"⚠️ Pakka? {day} ka broadcast {n_left} users ke paas se "
+        f"delete hoga (48h window).\nDekhe hue messages wapas nahi aate!",
+        reply_markup=InlineKeyboardMarkup([
+            [InlineKeyboardButton(BTN_RECALL_YES,
+                                  callback_data=f"{CB_RECALL_PREFIX}{day}:yes")],
+            [InlineKeyboardButton(BTN_RECALL_NO,
+                                  callback_data=f"{CB_RECALL_PREFIX}{day}:no")],
+        ]))
 
 
 # ---------------- ADMIN LOOKUP ----------------
@@ -1439,6 +1531,7 @@ def build_app() -> Application:
     app.add_handler(CallbackQueryHandler(on_lookup_ask, pattern="^lookup:ask$"))
     app.add_handler(CallbackQueryHandler(on_students_count, pattern="^count:students$"))
     app.add_handler(CallbackQueryHandler(on_know_stuid, pattern="^know:stuid$"))
+    app.add_handler(CallbackQueryHandler(on_recall_btn, pattern="^recall:"))
     # Date-step AAJ button conversation ke bahar bhi fire hona chahiye
     app.add_handler(CallbackQueryHandler(on_holiday_date_btn, pattern="^hol:today$"))
     # Holiday proof button (custom-date record) — kisi bhi user ke liye

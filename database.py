@@ -58,6 +58,25 @@ def init_db() -> None:
                 type       TEXT NOT NULL,
                 saved_by   TEXT NOT NULL
             );
+
+            CREATE TABLE IF NOT EXISTS broadcast_log (
+                id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                kind       TEXT NOT NULL,
+                day        TEXT NOT NULL,
+                chat_id    TEXT NOT NULL,
+                message_id INTEGER NOT NULL,
+                sent_at    TEXT DEFAULT (datetime('now'))
+            );
+            CREATE INDEX IF NOT EXISTS idx_bcast_day
+                ON broadcast_log(kind, day);
+
+            CREATE TABLE IF NOT EXISTS recall_log (
+                id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                day        TEXT NOT NULL,
+                deleted    INTEGER NOT NULL DEFAULT 0,
+                failed     INTEGER NOT NULL DEFAULT 0,
+                at         TEXT DEFAULT (datetime('now'))
+            );
             """
         )
         # Migration: purane DB me 'year' column nahi hoga -> add karo
@@ -210,6 +229,46 @@ def get_all_holidays():
 
 def is_holiday(day: str) -> bool:
     return get_holiday(day) is not None
+
+
+# ---------------- broadcast log + recall audit ----------------
+
+def log_broadcast(kind: str, day: str, chat_id: str, message_id: int) -> None:
+    """Broadcast message ID save karo (48h recall window ke liye)."""
+    with _LOCK, _conn() as c:
+        c.execute(
+            "INSERT INTO broadcast_log (kind, day, chat_id, message_id)"
+            " VALUES (?, ?, ?, ?)",
+            (kind, day, str(chat_id), int(message_id)),
+        )
+
+
+def get_broadcast_log(kind: str, day: str):
+    with _LOCK, _conn() as c:
+        return c.execute(
+            "SELECT chat_id, message_id FROM broadcast_log"
+            " WHERE kind = ? AND day = ? ORDER BY id",
+            (kind, day),
+        ).fetchall()
+
+
+def clear_broadcast_log(kind: str, day: str) -> None:
+    with _LOCK, _conn() as c:
+        c.execute("DELETE FROM broadcast_log WHERE kind = ? AND day = ?",
+                  (kind, day))
+
+
+def log_recall(day: str, deleted: int, failed: int) -> None:
+    """Recall attempt audit trail."""
+    with _LOCK, _conn() as c:
+        c.execute("INSERT INTO recall_log (day, deleted, failed)"
+                  " VALUES (?, ?, ?)", (day, deleted, failed))
+
+
+def get_recall_log(day: str):
+    with _LOCK, _conn() as c:
+        return c.execute("SELECT * FROM recall_log WHERE day = ?"
+                         " ORDER BY id", (day,)).fetchall()
 
 
 def get_holidays_in_month(year: int, month: int) -> list[str]:

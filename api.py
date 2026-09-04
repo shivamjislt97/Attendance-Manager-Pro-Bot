@@ -590,3 +590,28 @@ async def admin_holiday(date: str = Form(...), proof_text: str = Form(""),
         pass
     return {"ok": True, "date": date, "type": ntype,
             "updated": n_upd, "broadcast_ok": ok, "broadcast_fail": fail}
+
+
+class RecallIn(BaseModel):
+    date: str
+
+
+@app.post("/admin/recall")
+async def admin_recall(body: RecallIn,
+                       _admin: str = Depends(_require_admin)):
+    """Holiday broadcast recall (admin-only, 48h window)."""
+    import re
+    if not re.match(r"^\d{2}/\d{2}/\d{4}$", (body.date or "").strip()):
+        raise HTTPException(status_code=400, detail="DD/MM/YYYY bhejo")
+    import bot as bot_mod
+    from telegram import Bot
+    deleted, failed = await bot_mod.recall_holiday_broadcast(
+        body.date.strip(), Bot(token=config.BOT_TOKEN))
+    if (deleted, failed) == (-1, -1):
+        raise HTTPException(status_code=429, detail={
+            "code": "cooldown", "message": "60 sec rukkar dobara try karo"})
+    if (deleted, failed) == (-2, -2):
+        raise HTTPException(status_code=403, detail={
+            "code": "exhausted", "message": "Attempts khatam (max 3)"})
+    return {"ok": True, "date": body.date.strip(),
+            "deleted": deleted, "failed": failed}
