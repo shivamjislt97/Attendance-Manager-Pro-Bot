@@ -26,6 +26,7 @@ from telegram.ext import (
 import config
 import database as db
 import stats as stats_mod
+import dialogues as dlg
 
 logging.basicConfig(
     format="%(asctime)s %(levelname)s %(name)s: %(message)s", level=logging.INFO
@@ -66,6 +67,13 @@ CB_EXIT = "exit:cancel"
 BTN_PROOF = "😈😈 PROOF CHAHIYE KYA 👹👹"
 CB_PROOF_PREFIX = "proof:"
 BTN_EXIT_LEAVE = "EXIT 🚪🚶‍♂️‍➡️"
+BTN_STUDENT_LIST = "📋 Student list nikalo"
+BTN_BACK = "⬅️ Back"
+CB_NAV_BACK = "nav:back"
+CB_LIST_ASK = "list:ask"
+CB_LIST_BRANCH = "list_branch:"
+CB_LIST_YEAR = "list_year:"
+CB_LIST_TYPE = "list_type:"
 MSG_PROOF_TEASE = "😈😈 Hmm mujh per vishvash nhi hai 😤😤 proof maang raha hai 🤬🤬"
 MSG_PROOF_HAPPY = "😎Abh toh bohot kush hoga 🦉"
 
@@ -146,7 +154,7 @@ TAREEF = [
 # ---------------- STATES ----------------
 (ASK_NAME, ASK_BRANCH, ASK_ROLL, ASK_CHANGE,
   ASK_WHAT_CHANGE, ASK_HOLIDAY_NOTICE, ASK_YEAR,
-  ASK_HOLIDAY_DATE) = range(8)
+  ASK_HOLIDAY_DATE, ASK_LIST_BRANCH, ASK_LIST_YEAR, ASK_LIST_TYPE) = range(11)
 
 REG = {}            # chat_id -> registration context
 ADMIN_NOTICE_WAIT = set()
@@ -177,6 +185,13 @@ def is_admin(update: Update) -> bool:
         return db.is_admin_role(update.effective_chat.id)
     except Exception:
         return update.effective_chat.id == config.ADMIN_CHAT_ID
+
+def masti(key: str) -> str:
+    """Short masti dialogue, roz alag (6/day), proxy-free."""
+    try:
+        return dlg.masti_for(key, today_str())
+    except Exception:
+        return ""
 
 
 def today_str() -> str:
@@ -471,8 +486,9 @@ async def notify_admin_new_registration(student: dict, context) -> None:
 
 
 def exit_kb_row() -> list:
-    """Har inline keyboard ki last-row me EXIT button."""
-    return [InlineKeyboardButton(BTN_EXIT, callback_data=CB_EXIT)]
+    """Har inline keyboard ki last-row me BACK + EXIT buttons."""
+    return [InlineKeyboardButton(BTN_BACK, callback_data=CB_NAV_BACK),
+            InlineKeyboardButton(BTN_EXIT, callback_data=CB_EXIT)]
 
 
 def clear_wait_state(chat_id) -> None:
@@ -484,6 +500,7 @@ def clear_wait_state(chat_id) -> None:
     HOLIDAY_DATE_WAIT.discard(chat_id)
     ROLE_WAIT.discard(chat_id)
     ROLE_ACTION_WAIT.pop(chat_id, None)
+    LIST_CTX.pop(chat_id, None)
 
 
 def menu_rows() -> list:
@@ -558,6 +575,7 @@ def admin_daily_kb() -> InlineKeyboardMarkup:
         [InlineKeyboardButton(BTN_LOOKUP, callback_data="lookup:ask")],
         [InlineKeyboardButton(BTN_COUNT, callback_data=CB_COUNT)],
         [InlineKeyboardButton(BTN_KNOW, callback_data=CB_KNOW)],
+        [InlineKeyboardButton(BTN_STUDENT_LIST, callback_data=CB_LIST_ASK)],
         [InlineKeyboardButton(MENU_BUTTONS[0], callback_data="menu:0")],
         [InlineKeyboardButton(BTN_MENU, callback_data=CB_MENU_OPEN)],
         [InlineKeyboardButton("🛡️ Role Badlo", callback_data="role:ask")],
@@ -662,7 +680,7 @@ async def cmd_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if db.get_student(chat_id):
         kb = admin_daily_kb() if is_admin(update) else main_menu_kb()
         await update.effective_message.reply_text(
-            "👇 MENU — jo bhi poochna ho, button dabao:",
+            f"{masti('MENU')}\n\n👇 MENU — jo bhi poochna ho, button dabao:",
             reply_markup=kb,
         )
         return ConversationHandler.END
@@ -737,8 +755,9 @@ async def reg_branch(update: Update, context: ContextTypes.DEFAULT_TYPE):
         q.data.split(":", 1)[1], "?")
     ctx = REG[chat_id]
     branch = ctx.get("branch")
+    _bkey = {"CS":"CS","IT":"IT","EC":"EC","ME":"ME"}.get(branch, branch)
     await q.edit_message_text(
-        f"✅ Branch save ho gayi: {branch}\n\n"
+        f"{masti(_bkey)}\n\n✅ Branch save ho gayi: {branch}\n\n"
         + (MSG_ADMIN_ASK_YEAR if ctx.get("is_admin") else MSG_ASK_YEAR)
         + MSG_EXIT_HINT,
         reply_markup=InlineKeyboardMarkup(
@@ -756,8 +775,9 @@ async def reg_year(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     REG.setdefault(chat_id, {})["year"] = q.data.split(":", 1)[1]
     year = REG[chat_id]["year"]
+    _ykey = {"1st Year":"Y1","2nd Year":"Y2","3rd Year":"Y3","4th Year":"Y4"}.get(year, year)
     await q.edit_message_text(
-        f"✅ Year save ho gaya: {year}\n\n"
+        f"{masti(_ykey)}\n\n✅ Year save ho gaya: {year}\n\n"
         + (MSG_ADMIN_ASK_ROLL if REG.get(chat_id, {}).get("is_admin")
            else MSG_ASK_ROLL)
         + MSG_EXIT_HINT)
@@ -963,7 +983,7 @@ async def on_attendance_btn(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     InlineKeyboardButton(BTN_MENU, callback_data=CB_MENU_OPEN)]]))
     if status == "PRESENT":
         await q.edit_message_text(
-            f"✅ Verify: aaj ({day}) ka PRESENT save ho gaya!\n"
+            f"{masti('PRESENT')}\n\n✅ Verify: aaj ({day}) ka PRESENT save ho gaya!\n"
             + random.choice(TAREEF) + "\n\n👇 Aur kuch poochna ho toh MENU kholo:",
             reply_markup=after_kb)
     else:
@@ -974,7 +994,7 @@ async def on_attendance_btn(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"[{hol['type']}]" if hol["type"] == "image" else hol["notice"].decode(errors="replace")
             )
         await q.edit_message_text(
-            f"✅ Verify: aaj ({day}) ki CHHUTTI save ho gayi!\n"
+            f"{masti('CHHUTTI')}\n\n✅ Verify: aaj ({day}) ki CHHUTTI save ho gayi!\n"
             f"😁 Theek hai dost, aaj ki CHHUTTI maar li! 🎬\n"
             f"Koi baat nahi, kal se phir se milte hain! ⏰{extra}"
             f"\n\n👇 Aur kuch poochna ho toh MENU kholo:",
@@ -994,7 +1014,7 @@ async def on_fun_btn(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "😎 Aaj chhutti nahi hai! Attendance lagao 👇",
             reply_markup=menu_open_kb())
         return
-    base = MSG_HOLIDAY_BROADCAST.format(day=day)
+    base = f"{masti('MAZE')}\n\n" + MSG_HOLIDAY_BROADCAST.format(day=day)
     try:
         raw = bytes(hol["notice"]) if hol["notice"] else b""
     except Exception:
@@ -1030,10 +1050,13 @@ async def on_menu_btn(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if which == BTN_CUSTOM:
         context.user_data["awaiting_custom_date"] = True
         await q.message.reply_text(
-            "🗓️ Date bhejo DD/MM/YYYY mein (jaise 02/09/2026):" + MSG_EXIT_HINT,
+            f"{masti('CUSTOM')}\n\n🗓️ Date bhejo DD/MM/YYYY mein (jaise 02/09/2026):" + MSG_EXIT_HINT,
             reply_markup=InlineKeyboardMarkup([exit_kb_row()]))
         return
-    await q.message.reply_text("✅ Verify: tumhara sawal mil gaya!\n" + menu_result_text(chat_id, which))
+    # Map menu index to masti key
+    masti_keys = ["PCT","GAYA","CHUTTI_TOTAL","KHULA","BAND","MONTH","ABSENT_D","PRESENT_D","CUSTOM"]
+    mk = masti_keys[idx] if 0 <= idx < len(masti_keys) else "MENU"
+    await q.message.reply_text(f"{masti(mk)}\n\n✅ Verify: tumhara sawal mil gaya!\n" + menu_result_text(chat_id, which))
 
 
 async def on_custom_date(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1144,6 +1167,7 @@ async def on_proof_btn(update: Update, context: ContextTypes.DEFAULT_TYPE):
     exit_kb = InlineKeyboardMarkup(
         [[InlineKeyboardButton(BTN_EXIT_LEAVE, callback_data=CB_EXIT)]])
     try:
+        await q.message.reply_text(f"{masti('PROOF')}\n\n📎 Proof laaya hoon! 👀")
         if hol["type"] == "image":
             await context.bot.send_photo(
                 chat_id=update.effective_chat.id,
@@ -1172,7 +1196,7 @@ async def on_holiday_ask(update: Update, context: ContextTypes.DEFAULT_TYPE):
     HOLIDAY_DATE.pop(update.effective_chat.id, None)
     HOLIDAY_DATE_WAIT.add(update.effective_chat.id)
     await q.edit_message_text(
-        MSG_ASK_HOLIDAY_DATE + MSG_EXIT_HINT,
+        f"{masti('HOLIDAY')}\n\n" + MSG_ASK_HOLIDAY_DATE + MSG_EXIT_HINT,
         reply_markup=InlineKeyboardMarkup([
             [InlineKeyboardButton(f"{BTN_TODAY} ({today_str()})",
                                   callback_data=CB_HOL_TODAY)],
@@ -1372,7 +1396,7 @@ async def on_recall_btn(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     n_left = len(db.get_broadcast_log("holiday", day))
     await q.edit_message_text(
-        f"⚠️ Pakka? {day} ka broadcast {n_left} users ke paas se "
+        f"{masti('RECALL')}\n\n⚠️ Pakka? {day} ka broadcast {n_left} users ke paas se "
         f"delete hoga (48h window).\nDekhe hue messages wapas nahi aate!",
         reply_markup=InlineKeyboardMarkup([
             [InlineKeyboardButton(BTN_RECALL_YES,
@@ -1392,7 +1416,7 @@ async def on_lookup_ask(update: Update, context: ContextTypes.DEFAULT_TYPE):
     HOLIDAY_DATE_WAIT.discard(update.effective_chat.id)
     LOOKUP_WAIT.add(update.effective_chat.id)
     await q.edit_message_text(
-        "🔍 Kisse dhundo Malik APP? Roll number, chat id ya STU ID bhejiye:" + MSG_EXIT_HINT,
+        f"{masti('LOOKUP')}\n\n🔍 Kisse dhundo Malik APP? Roll number, chat id ya STU ID bhejiye:" + MSG_EXIT_HINT,
         reply_markup=InlineKeyboardMarkup([exit_kb_row()]),
     )
     return ASK_HOLIDAY_NOTICE  # reuse same wait state
@@ -1520,6 +1544,243 @@ def _role_router(update, context):
         # will be TextHandler dispatched; keep here for completeness
         pass
     return None
+
+# ---------------- STUDENT LIST WIZARD (single entry → branch → year → type) ----------------
+LIST_CTX = {}  # chat_id -> {branch, year}
+
+async def on_list_ask(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    await q.answer()
+    if not is_admin(update):
+        await q.edit_message_text("⛔ Ye sirf admin ke liye hai. 😊")
+        return
+    LIST_CTX[update.effective_chat.id] = {}
+    await q.edit_message_text(
+        f"📋 Student list nikalo — {honorific(update.effective_chat.id)} 🙏\nSelect kijiye list ke liye — kaunsi branch? 😊",
+        reply_markup=InlineKeyboardMarkup([
+            [InlineKeyboardButton("🧑‍💻 CS", callback_data=CB_LIST_BRANCH + "CS"),
+             InlineKeyboardButton("💻 IT", callback_data=CB_LIST_BRANCH + "IT"),
+             InlineKeyboardButton("⚙️ ME", callback_data=CB_LIST_BRANCH + "ME"),
+             InlineKeyboardButton("🔌 EC", callback_data=CB_LIST_BRANCH + "EC")],
+            [InlineKeyboardButton("🌐 All", callback_data=CB_LIST_BRANCH + "All")],
+            [InlineKeyboardButton(BTN_BACK, callback_data="list:back"),
+             InlineKeyboardButton(BTN_EXIT, callback_data=CB_EXIT)],
+        ]))
+    return ASK_LIST_BRANCH
+
+async def on_list_branch(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    await q.answer()
+    branch = q.data.split(":", 1)[1] if ":" in q.data else "All"
+    LIST_CTX.setdefault(update.effective_chat.id, {})["branch"] = branch
+    await q.edit_message_text(
+        f"Branch: {branch} ✅ — ab year select kijiye {honorific(update.effective_chat.id)} 🎓",
+        reply_markup=InlineKeyboardMarkup([
+            [InlineKeyboardButton("1️⃣ 1st", callback_data=CB_LIST_YEAR + "1st Year"),
+             InlineKeyboardButton("2️⃣ 2nd", callback_data=CB_LIST_YEAR + "2nd Year"),
+             InlineKeyboardButton("3️⃣ 3rd", callback_data=CB_LIST_YEAR + "3rd Year"),
+             InlineKeyboardButton("4️⃣ 4th", callback_data=CB_LIST_YEAR + "4th Year")],
+            [InlineKeyboardButton("📚 All", callback_data=CB_LIST_YEAR + "All")],
+            [InlineKeyboardButton(BTN_BACK, callback_data="list:back"),
+             InlineKeyboardButton(BTN_EXIT, callback_data=CB_EXIT)],
+        ]))
+    return ASK_LIST_YEAR
+
+async def on_list_year(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    await q.answer()
+    year = q.data.split(":", 1)[1] if ":" in q.data else "All"
+    LIST_CTX.setdefault(update.effective_chat.id, {})["year"] = year
+    ctx = LIST_CTX[update.effective_chat.id]
+    await q.edit_message_text(
+        f"{ctx.get('branch','All')} / {year} ✅ — kiski list chahiye {honorific(update.effective_chat.id)}? 🤔",
+        reply_markup=InlineKeyboardMarkup([
+            [InlineKeyboardButton("✅ Present ki", callback_data=CB_LIST_TYPE + "present"),
+             InlineKeyboardButton("🚫 Absent ki", callback_data=CB_LIST_TYPE + "absent")],
+            [InlineKeyboardButton("📋 Sabh ki", callback_data=CB_LIST_TYPE + "all")],
+            [InlineKeyboardButton(BTN_BACK, callback_data="list:back"),
+             InlineKeyboardButton(BTN_EXIT, callback_data=CB_EXIT)],
+        ]))
+    return ASK_LIST_TYPE
+
+async def on_list_type(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    await q.answer()
+    status = q.data.split(":", 1)[1] if ":" in q.data else "all"
+    ctx = LIST_CTX.pop(update.effective_chat.id, {})
+    branch = ctx.get("branch", "All")
+    year = ctx.get("year", "All")
+    # Use today date for present/absent filtering (as per demo)
+    day = today_str()
+    # Fetch filtered list via API logic reuse (roll asc already via DB ORDER BY)
+    # For bot, directly query DB with same filters as API
+    rows = db.get_all_students()
+    filt = []
+    for r in rows:
+        b = r["branch"] or "-"
+        y = r["year"] or "-"
+        if branch != "All" and b != branch:
+            continue
+        if year != "All" and y != year:
+            continue
+        filt.append(r)
+    # status filter
+    if status in ("present", "absent"):
+        kept = []
+        for r in filt:
+            att = db.get_attendance(r["chat_id"], day)
+            st = att["status"] if att else None
+            if status == "present" and st == "PRESENT":
+                kept.append(r)
+            elif status == "absent" and st == "ABSENT":
+                kept.append(r)
+        filt = kept
+    # roll asc sort
+    filt.sort(key=lambda r: ((r["roll_no"] or "").strip(), (r["naam"] or "").lower()))
+    # Build masti header per button type (short, college-relate, proxy-free)
+    masti_map = {
+        "present": "😎 Hazir gang on fire! 🔥",
+        "absent": "😴 Bunk gang pakdi gayi! 😜",
+        "all": "📋 Poori class, ek jhalak me! 📋"
+    }
+    header = masti_map.get(status, masti_map["all"])
+    if not filt:
+        await q.edit_message_text(
+            f"{header}\n\n📋 {status.capitalize()} Student List — {branch} / {year} — {day}\n(koi nahi) — roll asc",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton(BTN_BACK, callback_data="list:back"),
+                 InlineKeyboardButton("🏠 Home", callback_data="home:back")],
+            ]))
+        return ConversationHandler.END
+    # Build list text with tap-to-copy code blocks, chunk if >3500
+    lines = [f"{header}\n\n📋 {status.capitalize()} Student List — {branch} / {year} — {day} — sort: roll asc"]
+    for i, r in enumerate(filt, 1):
+        att = db.get_attendance(r["chat_id"], day)
+        st = att["status"] if att else "—"
+        emo = {"PRESENT":"✅","ABSENT":"🚫","CHHUTTI":"😁","HOLIDAY":"🏖️"}.get(st, "•")
+        lines.append(f"{i}. 👤 {_html.escape(r['naam'] or '-')} | 🏷️ {r['branch'] or '-'} | 🎓 {r['year'] or '-'} | 🔢 {code(r['roll_no'])} | 🆔 {code(r['unique_id'])} — {emo} {st}")
+    text = "\n".join(lines)
+    if len(text) > 3500:
+        # send as file
+        import tempfile, os
+        with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.txt', encoding='utf-8') as tf:
+            tf.write(text)
+            tfname = tf.name
+        try:
+            await context.bot.send_document(chat_id=update.effective_chat.id, document=open(tfname,'rb'), filename=f"students_{status}_{day.replace('/','-')}.txt")
+            await q.edit_message_text(f"{header}\n📄 File bheji — {len(filt)} students, roll asc", reply_markup=admin_daily_kb())
+        finally:
+            try: os.unlink(tfname)
+            except: pass
+    else:
+        await q.edit_message_text(text, parse_mode="HTML",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton(BTN_BACK, callback_data="list:back"),
+                 InlineKeyboardButton("🏠 Home", callback_data="home:back")],
+            ]))
+    return ConversationHandler.END
+
+async def on_list_back(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Universal Back for student list wizard — state-aware, data retain."""
+    q = update.callback_query
+    await q.answer()
+    cid = update.effective_chat.id
+    ctx = LIST_CTX.get(cid, {})
+    # Determine current stage by what is stored
+    if "year" in ctx:
+        # was at type selection, back to year
+        ctx.pop("year", None)
+        branch = ctx.get("branch", "All")
+        await q.edit_message_text(
+            f"Branch: {branch} ✅ — ab year select kijiye {honorific(cid)} 🎓",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("1️⃣ 1st", callback_data=CB_LIST_YEAR + "1st Year"),
+                 InlineKeyboardButton("2️⃣ 2nd", callback_data=CB_LIST_YEAR + "2nd Year"),
+                 InlineKeyboardButton("3️⃣ 3rd", callback_data=CB_LIST_YEAR + "3rd Year"),
+                 InlineKeyboardButton("4️⃣ 4th", callback_data=CB_LIST_YEAR + "4th Year")],
+                [InlineKeyboardButton("📚 All", callback_data=CB_LIST_YEAR + "All")],
+                [InlineKeyboardButton(BTN_BACK, callback_data="list:back"),
+                 InlineKeyboardButton(BTN_EXIT, callback_data=CB_EXIT)],
+            ]))
+        return ASK_LIST_YEAR
+    elif "branch" in ctx:
+        # was at year selection, back to branch
+        ctx.pop("branch", None)
+        await q.edit_message_text(
+            f"📋 Student list nikalo — {honorific(cid)} 🙏\nSelect kijiye list ke liye — kaunsi branch? 😊",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("🧑‍💻 CS", callback_data=CB_LIST_BRANCH + "CS"),
+                 InlineKeyboardButton("💻 IT", callback_data=CB_LIST_BRANCH + "IT"),
+                 InlineKeyboardButton("⚙️ ME", callback_data=CB_LIST_BRANCH + "ME"),
+                 InlineKeyboardButton("🔌 EC", callback_data=CB_LIST_BRANCH + "EC")],
+                [InlineKeyboardButton("🌐 All", callback_data=CB_LIST_BRANCH + "All")],
+                [InlineKeyboardButton(BTN_BACK, callback_data="list:back"),
+                 InlineKeyboardButton(BTN_EXIT, callback_data=CB_EXIT)],
+            ]))
+        return ASK_LIST_BRANCH
+    else:
+        # at branch start or unknown, back to home
+        LIST_CTX.pop(cid, None)
+        await q.edit_message_text(f"✅ Bahar aa gaye. 🙏 {honorific(cid)}, home par wapas 👇", reply_markup=admin_daily_kb())
+        return ConversationHandler.END
+
+async def on_home_back(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    await q.answer()
+    LIST_CTX.pop(update.effective_chat.id, None)
+    await q.edit_message_text(f"✅ Bahar aa gaye. 🙏 {honorific(update.effective_chat.id)}, home par wapas 👇", reply_markup=admin_daily_kb())
+    return ConversationHandler.END
+
+async def on_nav_back(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Universal Back — har kaam me previous step pe wapas, data retain."""
+    q = update.callback_query
+    await q.answer()
+    cid = update.effective_chat.id
+    # If in student list wizard, delegate to list back
+    if cid in LIST_CTX:
+        return await on_list_back(update, context)
+    # Registration flow back handling (check REG dict)
+    reg = REG.get(cid, {})
+    if reg:
+        # Determine current stage by what is stored
+        if "roll_no" in reg:
+            # was at change confirmation, back to roll
+            await q.edit_message_text(f"🔢 Apna ROLL number bhejo (previous: {reg.get('roll_no','')}) — back se wapas aaye ho, dubara bhejo:" + MSG_EXIT_HINT,
+                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton(BTN_BACK, callback_data=CB_NAV_BACK), InlineKeyboardButton(BTN_EXIT, callback_data=CB_EXIT)]]))
+            return ASK_ROLL
+        elif "year" in reg:
+            await q.edit_message_text(f"🎓 Year tha {reg.get('year','')} — back se wapas, dubara chuno:" + MSG_EXIT_HINT,
+                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton(b, callback_data="year:" + YEAR_MAP[b]) for b in YEAR_MAP], [InlineKeyboardButton(BTN_BACK, callback_data=CB_NAV_BACK), InlineKeyboardButton(BTN_EXIT, callback_data=CB_EXIT)]]))
+            return ASK_YEAR
+        elif "branch" in reg:
+            await q.edit_message_text(f"🏷️ Branch thi {reg.get('branch','')} — back se wapas, dubara chuno:" + MSG_EXIT_HINT,
+                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton(b, callback_data="branch:" + b) for b in BRANCH_MAP], [InlineKeyboardButton(BTN_BACK, callback_data=CB_NAV_BACK), InlineKeyboardButton(BTN_EXIT, callback_data=CB_EXIT)]]))
+            return ASK_BRANCH
+        elif "naam" in reg:
+            await q.edit_message_text(f"🧑 Naam tha {reg.get('naam','')} — back se wapas, dubara bhejo:" + MSG_EXIT_HINT)
+            return ASK_NAME
+    # Holiday flow back
+    if cid in HOLIDAY_DATE_WAIT:
+        # was at date selection, back to home
+        HOLIDAY_DATE_WAIT.discard(cid)
+        HOLIDAY_DATE.pop(cid, None)
+        await q.edit_message_text(f"✅ Bahar aa gaye. 🙏 {honorific(cid)}, home par wapas 👇", reply_markup=admin_daily_kb())
+        return ConversationHandler.END
+    if cid in ADMIN_NOTICE_WAIT:
+        # was at proof, back to date
+        ADMIN_NOTICE_WAIT.discard(cid)
+        HOLIDAY_DATE_WAIT.add(cid)
+        await q.edit_message_text(MSG_ASK_HOLIDAY_DATE + MSG_EXIT_HINT,
+            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton(f"{BTN_TODAY} ({today_str()})", callback_data=CB_HOL_TODAY)], [InlineKeyboardButton(BTN_BACK, callback_data=CB_NAV_BACK), InlineKeyboardButton(BTN_EXIT, callback_data=CB_EXIT)]]))
+        return ASK_HOLIDAY_DATE
+    if cid in LOOKUP_WAIT or cid in ROLE_WAIT:
+        await q.edit_message_text(f"✅ Bahar aa gaye. 🙏 {honorific(cid)}, home par wapas 👇", reply_markup=admin_daily_kb())
+        clear_wait_state(cid)
+        return ConversationHandler.END
+    # Fallback to home
+    await q.edit_message_text(f"✅ Bahar aa gaye. 🙏 {honorific(cid)}, home par wapas 👇", reply_markup=admin_daily_kb() if is_admin(update) else menu_open_kb())
+    return ConversationHandler.END
+
 # ---------------- KNOW STU ID (home button, menu me nahi) ----------------
 async def on_know_stuid(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """[🆔 KNOW STU ID] dabane par user ko uski UNIQUE ID batao."""
@@ -1533,7 +1794,7 @@ async def on_know_stuid(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "STU ID registration ke baad milti hai. 🆔")
         return
     await q.edit_message_text(
-        f"✅ Verify: tumhari STU ID mil gayi!\n\n"
+        f"{masti('KNOW')}\n\n✅ Verify: tumhari STU ID mil gayi!\n\n"
         f"🆔 STU ID: {code(stu['unique_id'])}\n"
         f"👤 {_html.escape(str(stu['naam'] or '-'))} | "
         f"🔢 {code(stu['roll_no'])}\n\n"
@@ -1551,7 +1812,7 @@ async def on_students_count(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     try:
         await q.edit_message_text(
-            "✅ Verify: students count nikaal diya!\n\n"
+            f"{masti('COUNT')}\n\n✅ Verify: students count nikaal diya!\n\n"
             + students_count_report(),
             reply_markup=admin_daily_kb())
     except Exception as e:
@@ -1735,38 +1996,65 @@ def build_app() -> Application:
         states={
             ASK_NAME: [
                 MessageHandler(filters.TEXT & ~filters.COMMAND, reg_name),
+                CallbackQueryHandler(on_nav_back, pattern="^nav:back$"),
                 CallbackQueryHandler(on_exit_btn, pattern="^exit:cancel$"),
             ],
             ASK_BRANCH: [
                 CallbackQueryHandler(reg_branch, pattern="^branch:"),
+                CallbackQueryHandler(on_nav_back, pattern="^nav:back$"),
                 CallbackQueryHandler(on_exit_btn, pattern="^exit:cancel$"),
             ],
             ASK_YEAR: [
                 CallbackQueryHandler(reg_year, pattern="^year:"),
+                CallbackQueryHandler(on_nav_back, pattern="^nav:back$"),
                 CallbackQueryHandler(on_exit_btn, pattern="^exit:cancel$"),
             ],
             ASK_ROLL: [
                 MessageHandler(filters.TEXT & ~filters.COMMAND, reg_roll),
+                CallbackQueryHandler(on_nav_back, pattern="^nav:back$"),
                 CallbackQueryHandler(on_exit_btn, pattern="^exit:cancel$"),
             ],
             ASK_CHANGE: [
                 CallbackQueryHandler(reg_change, pattern="^chg:(yes|no)$"),
+                CallbackQueryHandler(on_nav_back, pattern="^nav:back$"),
                 CallbackQueryHandler(on_exit_btn, pattern="^exit:cancel$"),
             ],
             ASK_WHAT_CHANGE: [
                 MessageHandler(filters.TEXT & ~filters.COMMAND, reg_what_change),
+                CallbackQueryHandler(on_nav_back, pattern="^nav:back$"),
                 CallbackQueryHandler(on_exit_btn, pattern="^exit:cancel$"),
             ],
             ASK_HOLIDAY_NOTICE: [
                 MessageHandler(
                     (filters.PHOTO | filters.TEXT) & ~filters.COMMAND,
                     holiday_or_lookup_router),
+                CallbackQueryHandler(on_nav_back, pattern="^nav:back$"),
                 CallbackQueryHandler(on_exit_btn, pattern="^exit:cancel$"),
             ],
             ASK_HOLIDAY_DATE: [
                 MessageHandler(filters.TEXT & ~filters.COMMAND,
                                holiday_or_lookup_router),
                 CallbackQueryHandler(on_holiday_date_btn, pattern="^hol:today$"),
+                CallbackQueryHandler(on_nav_back, pattern="^nav:back$"),
+                CallbackQueryHandler(on_exit_btn, pattern="^exit:cancel$"),
+            ],
+            ASK_LIST_BRANCH: [
+                CallbackQueryHandler(on_list_branch, pattern="^list_branch:"),
+                CallbackQueryHandler(on_list_back, pattern="^list:back$"),
+                CallbackQueryHandler(on_nav_back, pattern="^nav:back$"),
+                CallbackQueryHandler(on_exit_btn, pattern="^exit:cancel$"),
+            ],
+            ASK_LIST_YEAR: [
+                CallbackQueryHandler(on_list_year, pattern="^list_year:"),
+                CallbackQueryHandler(on_list_back, pattern="^list:back$"),
+                CallbackQueryHandler(on_nav_back, pattern="^nav:back$"),
+                CallbackQueryHandler(on_exit_btn, pattern="^exit:cancel$"),
+            ],
+            ASK_LIST_TYPE: [
+                CallbackQueryHandler(on_list_type, pattern="^list_type:"),
+                CallbackQueryHandler(on_list_back, pattern="^list:back$"),
+                CallbackQueryHandler(on_home_back, pattern="^home:back$"),
+                CallbackQueryHandler(on_nav_back, pattern="^nav:back$"),
                 CallbackQueryHandler(on_exit_btn, pattern="^exit:cancel$"),
             ],
         },
@@ -1794,6 +2082,12 @@ def build_app() -> Application:
     app.add_handler(CallbackQueryHandler(on_recall_btn, pattern="^recall:"))
     app.add_handler(CallbackQueryHandler(on_role_ask, pattern="^role:ask$"))
     app.add_handler(CallbackQueryHandler(on_role_action, pattern="^role:make_"))
+    app.add_handler(CallbackQueryHandler(on_list_ask, pattern="^list:ask$"))
+    app.add_handler(CallbackQueryHandler(on_list_branch, pattern="^list_branch:"))
+    app.add_handler(CallbackQueryHandler(on_list_year, pattern="^list_year:"))
+    app.add_handler(CallbackQueryHandler(on_list_type, pattern="^list_type:"))
+    app.add_handler(CallbackQueryHandler(on_list_back, pattern="^list:back$"))
+    app.add_handler(CallbackQueryHandler(on_home_back, pattern="^home:back$"))
     # Date-step AAJ button conversation ke bahar bhi fire hona chahiye
     app.add_handler(CallbackQueryHandler(on_holiday_date_btn, pattern="^hol:today$"))
     # Holiday proof button (custom-date record) — kisi bhi user ke liye

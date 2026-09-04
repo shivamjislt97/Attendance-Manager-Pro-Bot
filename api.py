@@ -798,6 +798,53 @@ def admin_roles(_admin: str = Depends(_require_admin)):
             "audit": [dict(r) for r in db.get_role_audit(20)]}
 
 
+@app.get("/admin/students")
+def admin_students(branch: str = "", year: str = "", status: str = "all", date: str = "", q: str = "", limit: int = 50, offset: int = 0, _admin: str = Depends(_require_admin)):
+    """All students list with filters — admin only, roll asc sorted, More 3 options."""
+    if limit > 200:
+        limit = 200
+    rows = db.get_all_students()
+    # branch/year/q filters
+    branch = (branch or "").strip()
+    year = (year or "").strip()
+    q = (q or "").strip().lower()
+    status = (status or "all").strip().lower()
+    date = (date or "").strip()
+    # filter
+    filtered = []
+    for r in rows:
+        b = r["branch"] or "-"
+        y = r["year"] or "-"
+        if branch and branch.lower() != "all" and b.lower() != branch.lower():
+            continue
+        if year and year.lower() != "all" and y.lower() != year.lower():
+            continue
+        if q and q not in (str(r["naam"] or "").lower() + " " + str(r["roll_no"] or "").lower() + " " + str(r["unique_id"] or "").lower()):
+            continue
+        filtered.append(r)
+    # status filter (present/absent) requires date
+    if status in ("present", "absent"):
+        if not date:
+            import datetime
+            from zoneinfo import ZoneInfo
+            date = datetime.datetime.now(ZoneInfo(config.TZ)).strftime("%d/%m/%Y")
+        # reuse attendance check
+        kept = []
+        for r in filtered:
+            att = db.get_attendance(r["chat_id"], date)
+            st = att["status"] if att else None
+            if status == "present" and st == "PRESENT":
+                kept.append(r)
+            elif status == "absent" and st == "ABSENT":
+                kept.append(r)
+        filtered = kept
+    # roll asc sort (lexicographic, zero-padded numeric works)
+    filtered.sort(key=lambda r: ((r["roll_no"] or "").strip(), (r["naam"] or "").lower()))
+    total = len(filtered)
+    sliced = filtered[offset:offset+limit]
+    return {"total": total, "students": [dict(r) for r in sliced], "limit": limit, "offset": offset}
+
+
 @app.get("/admin/broadcasts-alias")
 def admin_broadcasts_alias(_admin: str = Depends(_require_admin)):
     """Alias for broadcasts list."""
