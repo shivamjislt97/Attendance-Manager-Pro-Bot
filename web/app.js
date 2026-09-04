@@ -7,11 +7,28 @@ const S = {
 };
 document.getElementById('in-base').value = S.base;
 
+const DEBUG = new URLSearchParams(location.search).has('debug');
+const C = {};  // session cache: month/stats/home (actions par clear hota hai)
+function cacheClear() { for (const k in C) delete C[k]; }
+let lastMs = 0;
+function debugBadge(path, ms) {
+  lastMs = ms;
+  if (!DEBUG) return;
+  let b = document.getElementById('debug-badge');
+  if (!b) {
+    b = document.createElement('div'); b.id = 'debug-badge';
+    b.style.cssText = 'position:fixed;top:6px;right:8px;background:#000;color:#4ade80;font-size:11px;padding:4px 8px;border-radius:8px;z-index:200;opacity:.85';
+    document.body.appendChild(b);
+  }
+  b.textContent = path.split('?')[0] + ' ' + Math.round(ms) + 'ms';
+}
 async function api(path, opts = {}) {
   const noLogout = !!opts._noLogout; delete opts._noLogout;
   opts.headers = Object.assign({}, opts.headers || {});
   if (S.token) opts.headers['X-Token'] = S.token;
+  const t0 = performance.now();
   const r = await fetch(S.base + path, opts);
+  debugBadge(path, performance.now() - t0);
   const ct = r.headers.get('content-type') || '';
   const data = ct.includes('json') ? await r.json() : await r.text();
   if (!r.ok) {
@@ -130,7 +147,7 @@ document.getElementById('btn-resetpw').onclick = async () => {
   } catch (err) { e.textContent = '❌ ' + err.message; }
 };
 function logout() {
-  S.token = ''; S.profile = null;
+  S.token = ''; S.profile = null; cacheClear();
   localStorage.removeItem('api_token'); localStorage.removeItem('api_profile');
   document.getElementById('nav').classList.add('hidden');
   show('scr-login');
@@ -157,54 +174,85 @@ function todayStr() {
   return String(d.getDate()).padStart(2, '0') + '/' +
          String(d.getMonth() + 1).padStart(2, '0') + '/' + d.getFullYear();
 }
-async function loadHome() {
+async function loadHome(force) {
   document.getElementById('home-hi').textContent = '😎 Namaste, ' + (S.profile ? S.profile.naam : 'Dost') + '!';
   document.getElementById('home-date').textContent = '📅 Aaj: ' + todayStr();
+  const box = document.getElementById('home-status');
+  const key = 'home:' + todayStr();
+  const paint = (r) => { box.textContent =
+      r.status ? ('✅ Aaj ka status: ' + r.status) :
+      (r.holiday ? '🏖️ Aaj college band hai — MOZ KARO 🎉' : '⏰ Aaj ki attendance abhi nahi lagi'); };
+  if (!force && C[key]) { paint(C[key]); return; }
+  box.innerHTML = '<div class="skel" style="height:44px"></div>';
   try {
     const r = await api('/record?date=' + encodeURIComponent(todayStr()));
-    document.getElementById('home-status').textContent =
-      r.status ? ('✅ Aaj ka status: ' + r.status) :
-      (r.holiday ? '🏖️ Aaj college band hai — MOZ KARO 🎉' : '⏰ Aaj ki attendance abhi nahi lagi');
-  } catch (e) { document.getElementById('home-status').textContent = '❌ ' + e.message; }
+    C[key] = r; paint(r);
+  } catch (e) { box.textContent = '❌ ' + e.message; }
 }
 async function markIt(status) {
-  const m = document.getElementById('home-msg'); m.textContent = '';
+  const m = document.getElementById('home-msg');
+  m.textContent = '⏳ Saving...';
+  document.getElementById('btn-present').disabled = true;
+  document.getElementById('btn-chhutti').disabled = true;
   try {
     const r = await api('/attendance', { method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status }) });
     m.textContent = '✅ Verify: ' + r.date + ' ka ' + r.status + ' save ho gaya!';
-    loadHome();
+    cacheClear(); loadHome(true);
   } catch (e) { m.textContent = '❌ ' + e.message; }
+  document.getElementById('btn-present').disabled = false;
+  document.getElementById('btn-chhutti').disabled = false;
 }
 document.getElementById('btn-present').onclick = () => markIt('PRESENT');
 document.getElementById('btn-chhutti').onclick = () => markIt('CHHUTTI');
 
 /* ---------- calendar ---------- */
 const MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-async function loadCal() {
+async function loadCal(force) {
   const now = new Date();
   if (!S.calY) { S.calY = now.getFullYear(); S.calM = now.getMonth() + 1; }
   document.getElementById('cal-title').textContent = MON[S.calM - 1] + ' ' + S.calY;
-  const grid = document.getElementById('cal-grid'); grid.innerHTML = '';
+  const grid = document.getElementById('cal-grid');
   document.getElementById('day-detail').classList.add('hidden');
-  ['S','M','T','W','T','F','S'].forEach(d => {
-    const e = document.createElement('div'); e.className = 'dow'; e.textContent = d; grid.appendChild(e);
-  });
-  let days = {};
-  try { days = (await api('/calendar?year=' + S.calY + '&month=' + S.calM)).days; }
-  catch (e) { grid.innerHTML = '<p class="err">❌ ' + e.message + '</p>'; return; }
-  const first = new Date(S.calY, S.calM - 1, 1).getDay();
-  for (let i = 0; i < first; i++) grid.appendChild(document.createElement('div'));
-  const n = new Date(S.calY, S.calM, 0).getDate();
-  for (let d = 1; d <= n; d++) {
-    const ds = String(d).padStart(2, '0') + '/' + String(S.calM).padStart(2, '0') + '/' + S.calY;
-    const b = document.createElement('button');
-    b.className = 'day m-' + ((days[ds] && days[ds].marker) || 'none');
-    b.textContent = d;
-    b.onclick = () => showDay(ds, b);
-    grid.appendChild(b);
+  const key = 'cal:' + S.calY + '-' + S.calM;
+  let days = (!force && C[key]) || null;
+  const paint = () => {
+    grid.innerHTML = '';
+    ['S','M','T','W','T','F','S'].forEach(d => {
+      const e = document.createElement('div'); e.className = 'dow'; e.textContent = d; grid.appendChild(e);
+    });
+    const first = new Date(S.calY, S.calM - 1, 1).getDay();
+    for (let i = 0; i < first; i++) grid.appendChild(document.createElement('div'));
+    const n = new Date(S.calY, S.calM, 0).getDate();
+    for (let d = 1; d <= n; d++) {
+      const ds = String(d).padStart(2, '0') + '/' + String(S.calM).padStart(2, '0') + '/' + S.calY;
+      const b = document.createElement('button');
+      b.className = 'day m-' + ((days[ds] && days[ds].marker) || 'none');
+      b.textContent = d;
+      b.onclick = () => showDay(ds, b);
+      grid.appendChild(b);
+    }
+  };
+  const skel = () => {
+    grid.innerHTML = '';
+    for (let i = 0; i < 35; i++) {
+      const s = document.createElement('div'); s.className = 'skel'; grid.appendChild(s);
+    }
+  };
+  if (days) { paint(); }
+  else {
+    skel();
+    try { days = (await api('/calendar?year=' + S.calY + '&month=' + S.calM)).days; C[key] = days; paint(); }
+    catch (e) { grid.innerHTML = '<p class="err">❌ ' + e.message + '</p>'; return; }
   }
+  // aas-paas ke months silent prefetch
+  [[S.calM - 1, S.calY], [S.calM + 1, S.calY]].forEach(([m, y]) => {
+    let mm = m, yy = y;
+    if (mm < 1) { mm = 12; yy--; } if (mm > 12) { mm = 1; yy++; }
+    const k = 'cal:' + yy + '-' + mm;
+    if (!C[k]) api('/calendar?year=' + yy + '&month=' + mm).then(r => { C[k] = r.days; }).catch(() => {});
+  });
 }
 document.getElementById('cal-prev').onclick = () => {
   S.calM--; if (S.calM < 1) { S.calM = 12; S.calY--; } loadCal();
@@ -227,7 +275,8 @@ async function showDay(ds, btn) {
       const b = document.createElement('button');
       b.className = 'primary'; b.textContent = '😈😈 PROOF CHAHIYE KYA 👹👹';
       b.onclick = async () => {
-        const pr = await fetch(S.base + '/holiday-proof?date=' + encodeURIComponent(ds),
+        b.disabled = true; b.textContent = '⏳ Loading...';
+        const pr = await fetch(S.base + '/holiday-proof?date=' + encodeURIComponent(ds) + '&thumb=1',
                                { headers: { 'X-Token': S.token } });
         if ((pr.headers.get('content-type') || '').includes('image')) {
           const url = URL.createObjectURL(await pr.blob());
@@ -243,21 +292,27 @@ async function showDay(ds, btn) {
 }
 
 /* ---------- stats ---------- */
-async function loadStats() {
-  const box = document.getElementById('stats-cards'); box.innerHTML = '...';
+async function loadStats(force) {
+  const box = document.getElementById('stats-cards');
+  if (!force && C.stats) { paintStats(C.stats); return; }
+  box.innerHTML = '<div class="skel" style="height:120px"></div><div class="skel" style="height:60px"></div><div class="skel" style="height:60px"></div>';
   try {
     const s = await api('/stats');
-    const ring = document.getElementById('ring');
-    document.getElementById('ring-txt').textContent = s.percent + '%';
-    ring.style.setProperty('--p', s.percent + '%');
-    box.innerHTML = '';
-    [['🎒 Khule din', s.college_open], ['🔒 Band din', s.college_closed],
-     ['✅ Present', s.present], ['😁 Chhutti', s.chutti],
-     ['🚫 Absent', s.absent]].forEach(([k, v]) => {
-      const d = document.createElement('div'); d.className = 'card';
-      d.textContent = k + '\n' + v; box.appendChild(d);
-    });
+    C.stats = s; paintStats(s);
   } catch (e) { box.innerHTML = '<p class="err">❌ ' + e.message + '</p>'; }
+}
+function paintStats(s) {
+  const box = document.getElementById('stats-cards');
+  const ring = document.getElementById('ring');
+  document.getElementById('ring-txt').textContent = s.percent + '%';
+  ring.style.setProperty('--p', s.percent + '%');
+  box.innerHTML = '';
+  [['🎒 Khule din', s.college_open], ['🔒 Band din', s.college_closed],
+   ['✅ Present', s.present], ['😁 Chhutti', s.chutti],
+   ['🚫 Absent', s.absent]].forEach(([k, v]) => {
+    const d = document.createElement('div'); d.className = 'card';
+    d.textContent = k + '\n' + v; box.appendChild(d);
+  });
 }
 
 /* ---------- chat ---------- */
@@ -327,5 +382,6 @@ document.getElementById('btn-holiday').onclick = async () => {
     if (!r.ok) throw new Error(j.detail || 'Error');
     m.textContent = '🏖️ Holiday declare! ' + j.date + ' | ' + j.updated +
                     ' entries | broadcast ' + j.broadcast_ok + '/' + j.broadcast_fail;
+    cacheClear();
   } catch (e) { m.textContent = '❌ ' + e.message; }
 };

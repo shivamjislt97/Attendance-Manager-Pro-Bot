@@ -20,6 +20,7 @@ from typing import Optional
 
 from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -41,8 +42,25 @@ app.add_middleware(
     allow_headers=["*"],
 )
 _WEB_DIR = os.path.join(HERE, "web")
+
+
+class _CachedStatic(StaticFiles):
+    """Versioned assets immutable-cache karo (?v= wali), HTML fresh rakho."""
+
+    async def get_response(self, path, scope):
+        resp = await super().get_response(path, scope)
+        if path.endswith((".js", ".css", ".woff2")):
+            resp.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+        else:
+            resp.headers["Cache-Control"] = "no-cache"
+        return resp
+
+
 if os.path.isdir(_WEB_DIR):
-    app.mount("/app", StaticFiles(directory=_WEB_DIR, html=True), name="app")
+    app.mount("/app", _CachedStatic(directory=_WEB_DIR, html=True), name="app")
+
+
+app.add_middleware(GZipMiddleware, minimum_size=500)
 
 
 # ---------------- startup: WAL + tokens table ----------------
@@ -446,7 +464,8 @@ def record(date: str, chat_id: str = Depends(_get_chat)):
 
 
 @app.get("/holiday-proof")
-def holiday_proof(date: str, chat_id: str = Depends(_get_chat)):
+def holiday_proof(date: str, thumb: int = 0,
+                  chat_id: str = Depends(_get_chat)):
     import re
     if not re.match(r"^\d{2}/\d{2}/\d{4}$", date):
         raise HTTPException(status_code=400, detail="DD/MM/YYYY bhejo")
@@ -455,6 +474,16 @@ def holiday_proof(date: str, chat_id: str = Depends(_get_chat)):
         raise HTTPException(status_code=404, detail="Us date par holiday nahi")
     raw = bytes(hol["notice"]) if hol["notice"] else b""
     if hol["type"] == "image":
+        if thumb:
+            try:
+                from PIL import Image
+                im = Image.open(io.BytesIO(raw))
+                im.thumbnail((800, 800))
+                buf = io.BytesIO()
+                im.convert("RGB").save(buf, "JPEG", quality=70)
+                return Response(content=buf.getvalue(), media_type="image/jpeg")
+            except Exception:
+                pass
         return Response(content=raw, media_type="image/jpeg")
     return {"date": date, "proof": raw.decode(errors="replace")}
 
