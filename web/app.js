@@ -181,7 +181,29 @@ async function loadHome(force) {
   const key = 'home:' + todayStr();
   const paint = (r) => { box.textContent =
       r.status ? ('✅ Aaj ka status: ' + r.status) :
-      (r.holiday ? '🏖️ Aaj college band hai — MOZ KARO 🎉' : '⏰ Aaj ki attendance abhi nahi lagi'); };
+      (r.holiday ? '🏖️ AAJ TOH CHHUTTI HAI MOZ KARO 🎉' : '⏰ Aaj ki attendance abhi nahi lagi');
+    const hideMark = !r.status && r.holiday;  // holiday: mark buttons nahi
+    document.getElementById('btn-present').style.display = hideMark ? 'none' : '';
+    document.getElementById('btn-chhutti').style.display = hideMark ? 'none' : '';
+    if (!r.status && r.holiday) {
+      const mb = document.createElement('button');
+      mb.className = 'warn'; mb.textContent = '🏖️ MAZE KARO AJJ';
+      mb.onclick = async () => {
+        box.textContent = '🏖️ AAJ TOH CHHUTTI HAI MOZ KARO 🎉';
+        try {
+          const pr = await fetch(S.base + '/holiday-proof?date=' + encodeURIComponent(todayStr()) + '&thumb=1',
+                                 { headers: { 'X-Token': S.token } });
+          if ((pr.headers.get('content-type') || '').includes('image')) {
+            const url = URL.createObjectURL(await pr.blob());
+            box.innerHTML += '<br><img src="' + url + '" style="max-width:100%;border-radius:8px">';
+          } else {
+            const j = await pr.json();
+            box.textContent += '\n📝 Proof: ' + j.proof;
+          }
+        } catch (e) { box.textContent += '\n❌ Proof nahi khula'; }
+      };
+      box.appendChild(document.createElement('br')); box.appendChild(mb);
+    } };
   if (!force && C[key]) { paint(C[key]); return; }
   box.innerHTML = '<div class="skel" style="height:44px"></div>';
   try {
@@ -285,6 +307,11 @@ async function showDay(ds, btn) {
           const j = await pr.json();
           box.textContent += '\n📝 Proof: ' + j.proof;
         }
+        box.textContent += '\n\n😈😈 Hmm mujh per vishvash nhi hai 😤😤 proof maang raha hai 🤬🤬';
+        box.textContent += '\n😎Abh toh bohot kush hoga 🦉';
+        const ok = document.createElement('button');
+        ok.textContent = '✅ Theek hai'; ok.onclick = () => showDay(ds, btn);
+        box.appendChild(document.createElement('br')); box.appendChild(ok);
       };
       box.appendChild(document.createElement('br')); box.appendChild(b);
     }
