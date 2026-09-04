@@ -13,3 +13,4 @@ api.lockdir/
 android/local.properties
 android/.gradle/
 android/app/build/
+*.apk
