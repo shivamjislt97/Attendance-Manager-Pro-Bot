@@ -234,6 +234,61 @@ class Api {
         .timeout(const Duration(seconds: 30));
     return Map<String, dynamic>.from(_decode(r) as Map);
   }
+
+  static Future<Map<String, dynamic>> notices() async {
+    final r = await http
+        .get(Uri.parse('$base/notices'), headers: _h)
+        .timeout(const Duration(seconds: 20));
+    return Map<String, dynamic>.from(_decode(r) as Map);
+  }
+
+  static Future<Map<String, dynamic>> adminBroadcasts() async {
+    final r = await http
+        .get(Uri.parse('$base/admin/broadcasts'), headers: _h)
+        .timeout(const Duration(seconds: 20));
+    return Map<String, dynamic>.from(_decode(r) as Map);
+  }
+
+  static Future<Map<String, dynamic>> broadcastPreview(
+      String msg, String branch, String year, String? photoPath) async {
+    final req = http.MultipartRequest('POST', Uri.parse('$base/admin/broadcast?dry_run=true'));
+    if (token.isNotEmpty) req.headers['X-Token'] = token;
+    req.fields['message'] = msg;
+    req.fields['branch'] = branch;
+    req.fields['year'] = year;
+    if (photoPath != null) {
+      req.files.add(await http.MultipartFile.fromPath('photo', photoPath));
+    }
+    final resp = await req.send().timeout(const Duration(seconds: 30));
+    final body = await resp.stream.bytesToString();
+    return Map<String, dynamic>.from(_decode(
+        http.Response(body, resp.statusCode, headers: {'content-type': 'application/json'})) as Map);
+  }
+
+  static Future<Map<String, dynamic>> broadcastSend(
+      String msg, String branch, String year, String? photoPath) async {
+    final req = http.MultipartRequest('POST', Uri.parse('$base/admin/broadcast?dry_run=false'));
+    if (token.isNotEmpty) req.headers['X-Token'] = token;
+    req.fields['message'] = msg;
+    req.fields['branch'] = branch;
+    req.fields['year'] = year;
+    if (photoPath != null) {
+      req.files.add(await http.MultipartFile.fromPath('photo', photoPath));
+    }
+    final resp = await req.send().timeout(const Duration(seconds: 60));
+    final body = await resp.stream.bytesToString();
+    return Map<String, dynamic>.from(_decode(
+        http.Response(body, resp.statusCode, headers: {'content-type': 'application/json'})) as Map);
+  }
+
+  static Future<Map<String, dynamic>> adminRecallBatch(String batch) async {
+    final r = await http
+        .post(Uri.parse('$base/admin/recall'),
+            headers: {'Content-Type': 'application/json', ..._h},
+            body: jsonEncode({'batch': batch, 'date': ''}))
+        .timeout(const Duration(seconds: 30));
+    return Map<String, dynamic>.from(_decode(r) as Map);
+  }
 }
 
 class ProofData {
