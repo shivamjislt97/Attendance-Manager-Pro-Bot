@@ -1220,10 +1220,26 @@ class _LoginState extends State<LoginScreen> {
         context, MaterialPageRoute(builder: (_) => const HomeShell()));
   }
 
+  String _humanHostErr(Object e) {
+    final s = e.toString().toLowerCase();
+    if (s.contains('failed host lookup') || s.contains('no address associated') || s.contains('errno = 7')) {
+      return '❌ Server DNS fail — auto fallback try kiya.\n'
+          'Agar ab bhi fail ho to ⚙️ Server setting me direct tunnel paste karo:\n'
+          'https://column-emperor-ship-identifier.trycloudflare.com\n'
+          'Ya WiFi/mobile data badlo, Private DNS OFF karo.';
+    }
+    return '❌ $e';
+  }
+
   Future<void> doLogin([String? password]) async {
-    setState(() => err = '');
+    setState(() { err = ''; okMsg = ''; });
     try {
-      enterApp(await Api.login(uid.text.trim(), roll.text.trim(), password));
+      final d = await Api.login(uid.text.trim(), roll.text.trim(), password);
+      // if fallback switch hua to user ko batao
+      if (Api.base.contains('trycloudflare.com') && Api.base != Api.defaultBaseForUi) {
+        setState(() => okMsg = '⚠️ Worker DNS fail tha — direct tunnel par auto-switch ho gaya. ✅');
+      }
+      enterApp(d);
     } on ApiErr catch (e) {
       if (e.message.contains('pehle admin password') ||
           e.message.contains('password_not_set')) {
@@ -1241,8 +1257,26 @@ class _LoginState extends State<LoginScreen> {
         setState(() => err = '❌ $e');
       }
     } catch (e) {
-      setState(() => err = '❌ $e');
+      final msg = _humanHostErr(e);
+      setState(() => err = msg);
+      if (msg.contains('Server DNS fail')) {
+        // fallback already tried inside Api._withFallback; if still fails, offer server dialog
+        if (mounted) {
+          Future.delayed(const Duration(milliseconds: 400), () {
+            if (mounted && msg.contains('Server DNS fail')) msgToast();
+          });
+        }
+      }
     }
+  }
+
+  void msgToast() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Text('DNS fail — ⚙️ Server setting kholo aur direct tunnel try karo'),
+        action: SnackBarAction(label: 'Open', onPressed: () => _serverDialog(context)),
+      ),
+    );
   }
 
   @override
