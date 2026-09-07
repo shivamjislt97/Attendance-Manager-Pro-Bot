@@ -462,7 +462,8 @@ def _month_cells(chat_id: str, year: int, month: int) -> dict:
         elif row is None:
             marker = "none"
         else:
-            marker = {"PRESENT": "present", "CHHUTTI": "chutti",
+            # CHHUTTI button = ABSENT (migrated), orange chutti no more — map to red absent
+            marker = {"PRESENT": "present", "CHHUTTI": "absent",
                       "ABSENT": "absent", "HOLIDAY": "holiday"}.get(
                           row["status"], "none")
         out[ds] = {"marker": marker,
@@ -490,14 +491,16 @@ def stats(year: Optional[int] = None, month: Optional[int] = None,
 
 # ---------------- attendance mark (bot wale rules) ----------------
 class AttIn(BaseModel):
-    status: str  # PRESENT | CHHUTTI
+    status: str  # PRESENT | ABSENT (CHHUTTI alias migrated)
 
 
 @app.post("/attendance")
 def mark_att(body: AttIn, chat_id: str = Depends(_get_chat)):
     st = body.status.strip().upper()
-    if st not in ("PRESENT", "CHHUTTI"):
-        raise HTTPException(status_code=400, detail="status PRESENT/CHHUTTI ho")
+    if st == "CHHUTTI":
+        st = "ABSENT"
+    if st not in ("PRESENT", "ABSENT"):
+        raise HTTPException(status_code=400, detail="status PRESENT/ABSENT ho")
     day = stats_mod.fmt(stats_mod.today())
     t = stats_mod.today()
     if stats_mod.is_sunday(t) or db.is_holiday(day):
@@ -578,7 +581,7 @@ def notices(chat_id: str = Depends(_get_chat)):
         })
     rows = sorted(db.get_attendance_history(chat_id),
                   key=lambda r: _key(r["date"]), reverse=True)[:5]
-    emo = {"PRESENT": "✅", "CHHUTTI": "😁", "ABSENT": "🚫", "HOLIDAY": "🏖️"}
+    emo = {"PRESENT": "✅", "CHHUTTI": "🚫", "ABSENT": "🚫", "HOLIDAY": "🏖️"}
     activity = [{"date": r["date"], "status": r["status"],
                  "marked_by": r["marked_by"],
                  "emoji": emo.get(r["status"], "")} for r in rows]
@@ -835,7 +838,7 @@ def admin_students(branch: str = "", year: str = "", status: str = "all", date: 
             st = att["status"] if att else None
             if status == "present" and st == "PRESENT":
                 kept.append(r)
-            elif status == "absent" and st == "ABSENT":
+            elif status == "absent" and st in ("ABSENT", "CHHUTTI"):
                 kept.append(r)
         filtered = kept
     # roll asc sort (lexicographic, zero-padded numeric works)

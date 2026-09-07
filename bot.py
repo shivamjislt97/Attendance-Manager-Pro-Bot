@@ -46,7 +46,7 @@ BTN_Y1, BTN_Y2, BTN_Y3, BTN_Y4 = (
 YEAR_MAP = {BTN_Y1: "1st Year", BTN_Y2: "2nd Year",
             BTN_Y3: "3rd Year", BTN_Y4: "4th Year"}
 BTN_PRESENT = "😎 PRESENT HU"
-BTN_CHHUTTI = "😁 AAJ KI CHHUTTI MAAR LI"
+BTN_CHHUTTI = "🚫 AAJ ABSENT HU"
 BTN_HOLIDAY = "🏖️ AAJ College ki Chhutti hai"
 BTN_NOTICE = "📢 Update College Holiday Notice"
 BTN_LOOKUP = "🔍 KISI STUDENT KA RECORD NIKALO"
@@ -527,7 +527,7 @@ def menu_open_kb() -> InlineKeyboardMarkup:
         ])
     return InlineKeyboardMarkup([
         [InlineKeyboardButton(BTN_PRESENT, callback_data="att:PRESENT"),
-         InlineKeyboardButton(BTN_CHHUTTI, callback_data="att:CHHUTTI")],
+         InlineKeyboardButton(BTN_CHHUTTI, callback_data="att:ABSENT")],
         [InlineKeyboardButton(BTN_MENU, callback_data=CB_MENU_OPEN)],
         [InlineKeyboardButton(BTN_KNOW, callback_data=CB_KNOW)],
     ])
@@ -545,7 +545,7 @@ def daily_kb() -> InlineKeyboardMarkup:
             [[InlineKeyboardButton(BTN_MAZE, callback_data=CB_FUN)]])
     return InlineKeyboardMarkup(
         [[InlineKeyboardButton(BTN_PRESENT, callback_data="att:PRESENT"),
-          InlineKeyboardButton(BTN_CHHUTTI, callback_data="att:CHHUTTI")]]
+          InlineKeyboardButton(BTN_CHHUTTI, callback_data="att:ABSENT")]]
     )
 
 
@@ -568,7 +568,7 @@ def admin_daily_kb() -> InlineKeyboardMarkup:
         rows.append([InlineKeyboardButton(BTN_MAZE, callback_data=CB_FUN)])
     else:
         rows.append([InlineKeyboardButton(BTN_PRESENT, callback_data="att:PRESENT")])
-        rows.append([InlineKeyboardButton(BTN_CHHUTTI, callback_data="att:CHHUTTI")])
+        rows.append([InlineKeyboardButton(BTN_CHHUTTI, callback_data="att:ABSENT")])
     rows.extend([
         [InlineKeyboardButton(BTN_HOLIDAY, callback_data="holiday:ask")],
         [InlineKeyboardButton(BTN_NOTICE, callback_data="holiday:ask")],
@@ -603,11 +603,10 @@ def menu_result_text(chat_id: str, which: str, custom_date=None) -> str:
         return (f"🏫 TOTAL COLLEGE GAYE DIN: {len(dates)}\n\n"
                 + ("\n".join(f"  • {d}" for d in dates) or "  (koi nahi)"))
     if which == BTN_CHUTTI_TOTAL:
-        return (f"😴 TOTAL CHHUTTI (abhi tak): "
-                f"{s['chutti'] + s['chutti_self'] + s['absent']}\n\n"
-                f"🏖️ declared: {s['chutti']}\n"
-                f"😁 self-declared: {s['chutti_self']}\n"
-                f"🚫 absent (auto): {s['absent']}")
+        return (f"🚫 TOTAL ABSENT (abhi tak): "
+                f"{s['absent']}\n\n"
+                f"🏖️ declared chhutti: {s['chutti']}\n"
+                f"🚫 absent (self + auto): {s['absent']}")
     if which == BTN_KHULA:
         return (f"🎒 COLLEGE KHULA THA: {s['college_open']} din\n"
                 f"(registration se aaj tak, SUNDAY + chhutti chhod kar)")
@@ -975,6 +974,9 @@ async def on_attendance_btn(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"Aaj attendance nahi lagegi — kal milte hain! 😎",
             reply_markup=menu_open_kb())
         return
+    # CHHUTTI alias = ABSENT (student absent)
+    if status == "CHHUTTI":
+        status = "ABSENT"
     db.mark_attendance(chat_id, status, "self")
     queue_backup_push("attendance")
     # Jawab ke baad menu wapas dikha do (taaki user menu tak na scroll kare)
@@ -994,8 +996,8 @@ async def on_attendance_btn(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"[{hol['type']}]" if hol["type"] == "image" else hol["notice"].decode(errors="replace")
             )
         await q.edit_message_text(
-            f"{masti('CHHUTTI')}\n\n✅ Verify: aaj ({day}) ki CHHUTTI save ho gayi!\n"
-            f"😁 Theek hai dost, aaj ki CHHUTTI maar li! 🎬\n"
+            f"{masti('ABSENT')}\n\n✅ Verify: aaj ({day}) ki ABSENT save ho gayi!\n"
+            f"🚫 Theek hai dost, aaj absent lag gayi! 🎬\n"
             f"Koi baat nahi, kal se phir se milte hain! ⏰{extra}"
             f"\n\n👇 Aur kuch poochna ho toh MENU kholo:",
             reply_markup=after_kb)
@@ -1089,7 +1091,7 @@ async def on_custom_date(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if hol:
             parts.append("🏖️ Us din COLLEGE BAND tha (chhutti)! 🎉")
         if row:
-            emoji = {"PRESENT": "✅", "CHHUTTI": "😁", "ABSENT": "🚫",
+            emoji = {"PRESENT": "✅", "CHHUTTI": "🚫", "ABSENT": "🚫",
                      "HOLIDAY": "🏖️"}.get(row["status"], "")
             parts.append(f"{emoji} Status: {row['status']} (by {row['marked_by']})")
         elif not hol:
@@ -1657,7 +1659,7 @@ async def on_list_type(update: Update, context: ContextTypes.DEFAULT_TYPE):
     for i, r in enumerate(filt, 1):
         att = db.get_attendance(r["chat_id"], day)
         st = att["status"] if att else "—"
-        emo = {"PRESENT":"✅","ABSENT":"🚫","CHHUTTI":"😁","HOLIDAY":"🏖️"}.get(st, "•")
+        emo = {"PRESENT":"✅","ABSENT":"🚫","CHHUTTI":"🚫","HOLIDAY":"🏖️"}.get(st, "•")
         lines.append(f"{i}. 👤 <b>{_html.escape(r['naam'] or '-')}</b> | 🏷️ {r['branch'] or '-'} | 🎓 {r['year'] or '-'} | 🔢 {code(r['roll_no'])} | 🆔 {code(r['unique_id'])} — {emo} {st}")
     text = "\n".join(lines)
     if len(text) > 3500:

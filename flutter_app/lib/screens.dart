@@ -239,9 +239,9 @@ class _HomeTabState extends State<HomeTab> {
             const SizedBox(width: 8),
             Expanded(
                 child: ElevatedButton(
-                    onPressed: () => _mark('CHHUTTI'),
+                    onPressed: () => _mark('ABSENT'),
                     style: ElevatedButton.styleFrom(backgroundColor: orange),
-                    child: const Text('😁 CHHUTTI'))),
+                    child: const Text('🚫 ABSENT HU'))),
           ])
         else
           ElevatedButton(
@@ -517,7 +517,7 @@ class _CalTabState extends State<CalTab> {
           Row(mainAxisSize: MainAxisSize.min, children: [Container(width: 11, height: 11, decoration: const BoxDecoration(shape: BoxShape.circle, color: green, boxShadow: [BoxShadow(color: green, blurRadius: 6)] )), const SizedBox(width: 5), const Text('Present', style: TextStyle(color: mut, fontSize: 12))]),
           Row(mainAxisSize: MainAxisSize.min, children: [Container(width: 11, height: 11, decoration: const BoxDecoration(shape: BoxShape.circle, color: red, boxShadow: [BoxShadow(color: red, blurRadius: 6)] )), const SizedBox(width: 5), const Text('Absent', style: TextStyle(color: mut, fontSize: 12))]),
           Row(mainAxisSize: MainAxisSize.min, children: [Container(width: 11, height: 11, decoration: const BoxDecoration(shape: BoxShape.circle, color: yellow, boxShadow: [BoxShadow(color: yellow, blurRadius: 6)] )), const SizedBox(width: 5), const Text('Holiday', style: TextStyle(color: mut, fontSize: 12))]),
-          Row(mainAxisSize: MainAxisSize.min, children: [Container(width: 11, height: 11, decoration: const BoxDecoration(shape: BoxShape.circle, color: orange, boxShadow: [BoxShadow(color: orange, blurRadius: 6)] )), const SizedBox(width: 5), const Text('Chhutti', style: TextStyle(color: mut, fontSize: 12))]),
+          Row(mainAxisSize: MainAxisSize.min, children: [Container(width: 11, height: 11, decoration: const BoxDecoration(shape: BoxShape.circle, color: red, boxShadow: [BoxShadow(color: red, blurRadius: 6)] )), const SizedBox(width: 5), const Text('Absent', style: TextStyle(color: mut, fontSize: 12))]),
         ]),
         const SizedBox(height: 12),
         if (loading)
@@ -642,7 +642,7 @@ class _StatsTabState extends State<StatsTab> {
       ['🎒 Khule din', s!['college_open']],
       ['🔒 Band din', s!['college_closed']],
       ['✅ Present', s!['present']],
-      ['😁 Chhutti', s!['chutti']],
+      ['🏖️ Chhutti (declared)', s!['chutti']],
       ['🚫 Absent', s!['absent']],
     ];
     return SingleChildScrollView(

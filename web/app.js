@@ -295,7 +295,7 @@ async function markIt(status) {
   document.getElementById('btn-chhutti').disabled = false;
 }
 document.getElementById('btn-present').onclick = () => markIt('PRESENT');
-document.getElementById('btn-chhutti').onclick = () => markIt('CHHUTTI');
+document.getElementById('btn-chhutti').onclick = () => markIt('ABSENT');
 
 /* ---------- calendar ---------- */
 const MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -402,9 +402,9 @@ function paintStats(s) {
   document.getElementById('ring-txt').textContent = s.percent + '%';
   ring.style.setProperty('--p', s.percent + '%');
   box.innerHTML = '';
-  [['🎒 Khule din', s.college_open], ['🔒 Band din', s.college_closed],
-   ['✅ Present', s.present], ['😁 Chhutti', s.chutti],
-   ['🚫 Absent', s.absent]].forEach(([k, v]) => {
+   [['🎒 Khule din', s.college_open], ['🔒 Band din', s.college_closed],
+    ['✅ Present', s.present], ['🏖️ Chhutti (declared)', s.chutti],
+    ['🚫 Absent', s.absent]].forEach(([k, v]) => {
     const d = document.createElement('div'); d.className = 'card';
     d.textContent = k + '\n' + v; box.appendChild(d);
   });

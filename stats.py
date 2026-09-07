@@ -155,10 +155,10 @@ def compute_stats(chat_id: str, month: tuple[int, int] | None = None) -> dict:
         status = row["status"]
         if status == "PRESENT":
             present.append(dstr)
-        elif status == "CHHUTTI":
-            chutti.append(dstr)
-        elif status == "ABSENT":
+        elif status in ("CHHUTTI", "ABSENT"):
+            # CHHUTTI button = ABSENT (student self absent) — merge for records
             absent.append(dstr)
+        # legacy CHHUTTI separate list kept empty for compat; will be 0 post-migration
 
     # Date lists hamesha NEWEST-FIRST (latest date sabse upar) —
     # DD/MM/YYYY par string-sort galat order deta tha (01/09 upar, 31/08 niche).
@@ -189,7 +189,7 @@ def compute_stats(chat_id: str, month: tuple[int, int] | None = None) -> dict:
         "college_closed": len(college_closed_dates(stu)),
         "present": len(present),
         "chutti": len(declared),
-        "chutti_self": len(chutti),
+        "chutti_self": 0,
         "absent": len(absent),
         "percent": round(percent, 1),
         "present_dates": present,
@@ -208,8 +208,8 @@ def stats_message(s: dict, title: str = "📊 ATTENDANCE REPORT") -> str:
         f"🎒 College khule din : {s['college_open']}",
         f"🔒 College band din  : {s['college_closed']} (sirf Sunday)",
         f"✅ Present           : {s['present']}",
-        f"😁 Chhutti (declared): {s['chutti']}",
-        f"🚫 Absent            : {s['absent']}",
+        f"🏖️ Chhutti (declared): {s['chutti']}",
+        f"🚫 Absent (aaj CHHUTTI→ABSENT): {s['absent']}",
         f"📊 Attendance        : {s['percent']}%",
     ]
     if s["month"]:
