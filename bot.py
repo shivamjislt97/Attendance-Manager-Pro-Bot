@@ -618,10 +618,14 @@ def menu_result_text(chat_id: str, which: str, custom_date=None) -> str:
         return stats_mod.stats_message(
             sm, f"📅 ISS MAHINE ({stats_mod.MONTHS_HI[today.month-1]} {today.year})")
     if which == BTN_ABSENT_D:
-        return ("🚫 ABSENT THA IN DATES PAR:\n\n"
-                + ("\n".join(f"  • {d}" for d in s["absent_dates"])
+        # old → new (purani sabse upar) + Gayab heading
+        asc_abs = stats_mod.sort_dates_asc(s["absent_dates"])
+        return ("Gayab din ki list! 👻\n\n"
+                "✅ Verify: tumhara sawal mil gaya!\n"
+                "🚫 ABSENT THA IN DATES PAR:\n\n"
+                + ("\n".join(f"  • {d}" for d in asc_abs)
                    or "  🎉 (kabhi absent nahi hua!)")
-                + "\n\n(sab DD/MM/YYYY mein — latest date sabse upar)")
+                + "\n\n(sab DD/MM/YYYY mein — sabse purani date sabse upar)")
     if which == BTN_PRESENT_D:
         asc = stats_mod.sort_dates_asc(s["present_dates"])
         return ("✅ PRESENT THA IN DATES PAR:\n\n"

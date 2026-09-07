@@ -164,7 +164,7 @@ def compute_stats(chat_id: str, month: tuple[int, int] | None = None) -> dict:
     # DD/MM/YYYY par string-sort galat order deta tha (01/09 upar, 31/08 niche).
     present = sort_dates_desc(present)
     chutti = sort_dates_desc(chutti)
-    absent = sort_dates_desc(absent)
+    absent = sort_dates_asc(absent)
 
     worked = len(open_days)
     marked = len(present) + len(chutti) + len(absent)

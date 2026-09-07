@@ -11,8 +11,8 @@ android {
         applicationId = "com.attendance.webapp"
         minSdk = 24
         targetSdk = 34
-        versionCode = 3
-        versionName = "1.2"
+        versionCode = 4
+        versionName = "1.3"
         // Default server URL (stable Worker, tunnel badle bhi same rahega)
         buildConfigField("String", "DEFAULT_BASE_URL",
             "\"https://hidden-bush-188f.shivamjislt95288.workers.dev\"")
