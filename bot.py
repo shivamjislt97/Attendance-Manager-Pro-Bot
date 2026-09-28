@@ -618,10 +618,9 @@ def menu_result_text(chat_id: str, which: str, custom_date=None) -> str:
         return stats_mod.stats_message(
             sm, f"📅 ISS MAHINE ({stats_mod.MONTHS_HI[today.month-1]} {today.year})")
     if which == BTN_ABSENT_D:
-        # old → new (purani sabse upar) + Gayab heading
+        # old → new (purani sabse upar) + Gayab heading — no duplicate Verify
         asc_abs = stats_mod.sort_dates_asc(s["absent_dates"])
-        return ("Gayab din ki list! 👻\n\n"
-                "✅ Verify: tumhara sawal mil gaya!\n"
+        return ("Gayab din ki list! 👻\n"
                 "🚫 ABSENT THA IN DATES PAR:\n\n"
                 + ("\n".join(f"  • {d}" for d in asc_abs)
                    or "  🎉 (kabhi absent nahi hua!)")
@@ -1059,10 +1058,13 @@ async def on_menu_btn(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"{masti('CUSTOM')}\n\n🗓️ Date bhejo DD/MM/YYYY mein (jaise 02/09/2026):" + MSG_EXIT_HINT,
             reply_markup=InlineKeyboardMarkup([exit_kb_row()]))
         return
-    # Map menu index to masti key
+    # Map menu index to masti key — ABSENT_D ke liye wrapper skip (no duplicate header/Verify)
     masti_keys = ["PCT","GAYA","CHUTTI_TOTAL","KHULA","BAND","MONTH","ABSENT_D","PRESENT_D","CUSTOM"]
     mk = masti_keys[idx] if 0 <= idx < len(masti_keys) else "MENU"
-    await q.message.reply_text(f"{masti(mk)}\n\n✅ Verify: tumhara sawal mil gaya!\n" + menu_result_text(chat_id, which))
+    if which == BTN_ABSENT_D:
+        await q.message.reply_text(menu_result_text(chat_id, which))
+    else:
+        await q.message.reply_text(f"{masti(mk)}\n\n✅ Verify: tumhara sawal mil gaya!\n" + menu_result_text(chat_id, which))
 
 
 async def on_custom_date(update: Update, context: ContextTypes.DEFAULT_TYPE):
