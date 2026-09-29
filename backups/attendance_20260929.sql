@@ -161,6 +161,7 @@ INSERT INTO attendance VALUES('28/09/2026','8789584247','PRESENT','self');
 INSERT INTO attendance VALUES('21/09/2026','6267031612','PRESENT','admin-corrected: 2405210100046 21/09 PRESENT only master');
 INSERT INTO attendance VALUES('29/09/2026','6267031612','PRESENT','self');
 INSERT INTO attendance VALUES('29/09/2026','6454713102','PRESENT','self');
+INSERT INTO attendance VALUES('29/09/2026','8789584247','PRESENT','self');
 CREATE TABLE holiday_notices (
                 date       TEXT PRIMARY KEY,
                 notice     BLOB,
