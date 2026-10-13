@@ -214,6 +214,7 @@ INSERT INTO attendance VALUES('12/10/2026','6454713102','PRESENT','self');
 INSERT INTO attendance VALUES('12/10/2026','8625984731','ABSENT','bot-auto');
 INSERT INTO attendance VALUES('12/10/2026','5320957474','ABSENT','bot-auto');
 INSERT INTO attendance VALUES('13/10/2026','6454713102','PRESENT','self');
+INSERT INTO attendance VALUES('13/10/2026','8789584247','ABSENT','self');
 CREATE TABLE holiday_notices (
                 date       TEXT PRIMARY KEY,
                 notice     BLOB,
